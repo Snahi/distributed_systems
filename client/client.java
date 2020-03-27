@@ -1,24 +1,31 @@
 import java.io.*;
 import java.net.*;
 import gnu.getopt.Getopt;
+import java.lang.Thread;
 
 
 class client {
-	
-	private static enum RC {
+
+	static final int OK = 0;
+	static final int ERROR_USER = 1;
+	static final int ERROR = 2;
+
+	/* Cna we use enum for returning codes??
+	private static enum CODE {
         OK,
-        ERROR,
-        USER_ERROR
-    };
+        ERR,
+        ERR2
+	};
+	*/
 	
 	/******************* ATTRIBUTES *******************/
 	
 	private static String _server   = null;
 	private static int _port = -1;
 		
-	//socket of the server
+	//Socket of the server
     private static ServerSocket server_Socket;
-    //variable used to check if the user is connected or not before performing some operations
+    //Variable used to check if the user is connected or not
     private static Boolean connect = false; 	
     //in this variable we store the name of the user which is currently working
     private static String username = "";  
@@ -40,45 +47,49 @@ class client {
 	 * 
 	 * @return ERROR CODE
 	 */
-	static RC register(String user)
+	static int register(String user)
 	{
+		int rc=0;
 		try {
+			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
-			// send the message REGISTER to the server to perform the operation, as well as the username
+			//Send to the server the message REGISTER and the username
 			outToServer.writeBytes("REGISTER\0");
 			outToServer.writeBytes(user+"\0");
 
-			// initialize the variable for receiving the message from the server and read it afterwards
+			//Receive the message from the server and read it
 			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
 			byte response = inFromServer.readByte();
 
-			// consider the different messages that can be sent by the server so we will print a message depending on the situation
+			//Switch for the different returning messages from the server
 			switch (response) {
 				case 0:
+				rc=0;
 				System.out.println("c> REGISTER OK");
 				break;
+				
 				case 1:
+				rc=1;
 				System.out.println("c> USERNAME IN USE");
 				break;
+				
 				case 2:
+				rc=2;
 				System.out.println("c> REGISTER FAIL");
 				break;
 			}
-			//Once performed the operation, we close the socket
+			//After checkhing the response, we close the socket
 			client_Socket.close();
 
 		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
 			e.printStackTrace();
-			return RC.ERROR;
+			return ERROR;
 		}
-		return RC.OK;
-		// Write your code here
-		//System.out.println("REGISTER " + user);
-		//return 0;
+		return rc;
 	}
 	
 	/**
@@ -88,9 +99,47 @@ class client {
 	 */
 	static int unregister(String user) 
 	{
-		// Write your code here
-		System.out.println("UNREGISTER " + user);
-		return 0;
+		int rc=0;
+		try {
+            Socket client_Socket = new Socket(_server, _port);
+            DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message UNREGISTER and the username
+            outToServer.writeBytes("UNREGISTER\0");
+            outToServer.writeBytes(user+"\0");
+
+            //Receive the message from the server and read it
+            DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+            byte response = inFromServer.readByte();
+
+            //Switch for the different returning messages from the server
+            switch (response){
+                case 0:
+				System.out.println("c> UNREGISTER OK");
+				rc=0;
+				break;
+				
+				case 1:
+				rc=1;
+                System.out.println("c> USER DOES NOT EXIST");
+                break;
+				
+				case 2:
+				rc=2;
+                System.out.println("c> UNREGISTER FAIL");
+                break;
+            }
+
+			//After checkhing the response, we close the socket
+            client_Socket.close();
+
+        }
+        catch(Exception e) {
+            System.out.println("Exception: " + e);
+            e.printStackTrace();
+            return ERROR;
+		}
+        return rc;
 	}
 	
     	/**
@@ -100,9 +149,69 @@ class client {
 	 */
 	static int connect(String user) 
 	{
-		// Write your code here
-		System.out.println("CONNECT " + user);
-		return 0;
+		int rc=0;
+		if(connect == false){ 
+            try {
+                Socket client_Socket = new Socket(_server, _port);
+                server_Socket = new ServerSocket(0);
+                DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+                //Send to the server the message CONNECT and the username and port of the client
+                outToServer.writeBytes("CONNECT\0");
+                outToServer.writeBytes(user+"\0");
+                outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
+
+                //Receive the message from the server and read it
+                DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+                byte [] response = new byte[1];
+                inFromServer.read(response);
+
+                //Switch for the different returning messages from the server
+                switch (response[0]) {
+					case 0:
+					rc=0;
+                    System.out.println("c> CONNECT OK");
+		    		//Set the variable of the thread operating to true
+                    operating_thread = true; 
+                    //THREAD
+                    connect = true; 
+                    username = user; 
+                    break;
+					
+					case 1:
+					rc=1;
+					System.out.println("c> CONNECT FAIL, USER DOES NOT EXIST");
+                    server_Socket.close();
+                    break;
+					
+					case 2:
+					rc=2;
+                    System.out.println("c> USER ALREADY CONNECTED");
+                    server_Socket.close();
+                    break;
+					
+					case 3:
+					rc=3;
+                    System.out.println("c> CONNECT FAIL");
+                    server_Socket.close();
+                    break;
+                }
+
+                //We close the socket
+                client_Socket.close();
+
+            }
+            catch (Exception e) {
+                System.out.println("Exception: " + e);
+                e.printStackTrace();
+                return ERROR;
+            }
+        }
+        else { 
+			rc=2;
+             System.out.println("c> USER ALREADY CONNECTED");
+        }
+        return rc;
 	}
 	
 	 /**
@@ -112,11 +221,58 @@ class client {
 	 */
 	static int disconnect(String user) 
 	{
-		// Write your code here
-		System.out.println("DISCONNECT " + user);
-		return 0;
+		int rc=0;
+		try {
+			//Create the socket
+            Socket client_Socket = new Socket(_server, _port);
+            DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+            //Send to the server the message REGISTER and the username
+            outToServer.writeBytes("DISCONNECT\0");
+            outToServer.writeBytes(user+"\0");
+
+            //Receive the message from the server and read it
+            DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+            byte response = inFromServer.readByte();
+
+            //Switch for the different returning messages from the server
+            switch (response) {
+                case 0:
+				rc=0;
+				System.out.println("c> DISCONNECT OK");
+                connect = false;
+                username = ""; 
+				//Set the variable of the thread operating to false.
+                operating_thread=false; 
+				break;
+				
+				case 1:
+				rc=1;
+                System.out.println("c> DISCONNECT FAIL / USER DOES NOT EXIST");
+				break;
+				
+				case 2:
+				rc=2;
+                System.out.println("c> DISCONNECT FAIL / USER NOT CONNECTED");
+				break;
+				
+				case 3:
+				rc=3;
+                System.out.println("c> DISCONNECT FAIL");
+                break;
+            }
+
+            //We close the socket
+            client_Socket.close();
+        }catch(Exception e) {
+            System.out.println("Exception: " + e);
+            e.printStackTrace();
+            return ERROR;
+        }
+        return rc;
 	}
 
+	
 	 /**
 	 * @param file_name    - file name
 	 * @param description - descrition
