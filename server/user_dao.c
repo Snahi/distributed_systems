@@ -145,17 +145,17 @@ int delete_user(char* name)
 {
     int res = DELETE_USER_SUCCESS;
 
+    // create user directory path. + 1 because additional / to separate dir from file
+    int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(name) + 1;
+    int file_path_len = user_folder_path_len + MAX_FILENAME_LEN; 
+    char dir_path[user_folder_path_len + 1]; 
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, name);
+    strcat(dir_path, "/");
+
     // acquire the storage mutex
     if (pthread_mutex_lock(&mutex_storage) == 0)
     {
-        // create user directory path. + 1 because additional / to separate dir from file
-        int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(name) + 1;
-        int file_path_len = user_folder_path_len + MAX_FILENAME_LEN; 
-        char dir_path[user_folder_path_len + 1]; 
-        strcpy(dir_path, STORAGE_DIR_PATH);
-        strcat(dir_path, name);
-        strcat(dir_path, "/");
-
         // first delete all user's files
         int del_files_res = delete_all_user_files(dir_path, file_path_len);
         if (del_files_res == DELETE_ALL_USER_FILES_SUCCESS)
