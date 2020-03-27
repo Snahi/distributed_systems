@@ -27,9 +27,9 @@ class client {
     private static ServerSocket server_Socket;
     //Variable used to check if the user is connected or not
     private static Boolean connect = false; 	
-    //in this variable we store the name of the user which is currently working
+    //Store the name of the current user
     private static String username = "";  
-    //variable used to control the execution of the thread of the client
+    //Variable used to control the execution of the thread
     private static Boolean operating_thread = true; 
 	
 
@@ -173,7 +173,7 @@ class client {
                     System.out.println("c> CONNECT OK");
 		    		//Set the variable of the thread operating to true
                     operating_thread = true; 
-                    //THREAD
+                    //THREAD ??
                     connect = true; 
                     username = user; 
                     break;
@@ -227,7 +227,7 @@ class client {
             Socket client_Socket = new Socket(_server, _port);
             DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
-            //Send to the server the message REGISTER and the username
+            //Send to the server the message DISCONNECT and the username
             outToServer.writeBytes("DISCONNECT\0");
             outToServer.writeBytes(user+"\0");
 
@@ -272,7 +272,7 @@ class client {
         return rc;
 	}
 
-	
+
 	 /**
 	 * @param file_name    - file name
 	 * @param description - descrition
