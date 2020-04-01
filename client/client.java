@@ -4,7 +4,7 @@ import gnu.getopt.Getopt;
 import java.lang.Thread;
 
 
-class client implements Runnable{
+class client{
 
 	static final int OK = 0;
 	static final int ERROR_USER = 1;

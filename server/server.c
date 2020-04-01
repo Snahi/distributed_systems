@@ -10,6 +10,9 @@
 #include <pthread.h>
 #include "lines.h"
 #include <regex.h>
+#include <signal.h>
+#include <errno.h>
+#include "user_dao.h"
 
 
 
@@ -39,16 +42,10 @@
 #define REGISTER_SUCCESS 0
 #define REGISTER_NON_UNIQUE_USERNAME 1
 #define REGISTER_OTHER_ERROR 2
-#define MAX_NUM_OF_USERS 4000000
-// store user
-#define STORE_USER_SUCCESS 0
 // unregister
 #define UNREGISTER_SUCCESS 0
 #define UNREGISTER_NO_SUCH_USER 1
 #define UNREGISTER_OTHER_ERROR 2
-// delete user
-#define DELETE_USER_SUCCESS 0
-#define DELETE_USER_NO_SUCH_USER 1
 // publish
 #define MAX_FILENAME_LEN 256
 #define MAX_NUMBER_OF_FILES 100000
@@ -103,6 +100,11 @@ int obtain_port();
 	Returns obtained_port or default port if errors occured.
 */
 int process_obtain_port_result(int port);
+/*
+	starts listening for ctrl+c to finish the program.
+	Returns 1 on success and 0 on fail
+*/
+int start_listening_sigint();
 /*
 	Prints a cmd template for starting the server
 */
@@ -167,30 +169,8 @@ int read_username(int socket, char* username);
 	Returns 1 if yes 0 if no
 */
 int is_username_valid(char* username);
-/*
-	checks if the user with the username is registered.
-	Returns 1 if the user is registered and 0 if no
-*/
-int is_registered(char* username);
-/*
-	Returns number of registered users
-*/
-uint32_t get_num_of_users();
-/*
-	Stores user persistently.
-	Return
-	TODO
-*/
-int store_user(char* username);
 
 void unregister(int socket);
-/*
-	deletes the user with the username specified from the storage.
-	Returns
-	DELETE_USER_SUCCESS 		- success
-	DELETE_USER_NO_SUCH_USER 	- there is no user with the specified username
-*/
-int delete_user(char* username);
 /*
 	checks if the user with the username is connected to the server.
 	Returns 1 if the user is connected and 0 if no
@@ -218,12 +198,6 @@ int send_users_list(int socket, user* users_list, uint32_t num_of_users);
 
 void list_content(int socket);
 /*
-	dynamically allocates an array of filenames of files of the specified user, so it has
-	to be deleted afterwards.
-	Returns number of files
-*/
-uint32_t get_user_content(char* username, char*** p_user_content);
-/*
 	Sends list of content (names of files) through the socket.
 	Returns:
 	SEND_CONTENT_LIST_SUCCESS 			- success
@@ -249,6 +223,11 @@ pthread_cond_t cond_csd;
 	yet copied)
 */
 int is_copied;
+/*
+	flat to mark if the programm should continue. if 1 then continue, if 0 then the main loop
+	should stop. It is set to 1 after pressing ctrl + c
+*/
+int is_running = 1;
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -283,13 +262,25 @@ int main(int argc, char* argv[])
 		return -1;
 
 	pthread_t t_request;
+
+	// init storage
+	int init_user_dao_res = init_user_dao();
+	if (init_user_dao_res != INIT_USER_DAO_SUCCESS)
+	{
+		printf("ERROR main - could not initialize user dao. Code: %d\n", init_user_dao_res);
+		return -1;
+	}
 	
 	// start waiting for requests
 	struct sockaddr_in client_addr;
 	int client_socket;
     socklen_t clinet_addr_size = sizeof(struct sockaddr_in);
 
-    while (1)
+	// start detecting ctrl + c
+	if (!start_listening_sigint())
+		return -1;
+
+    while (is_running)
     {
         // accept connection from a client
         client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &clinet_addr_size);
@@ -302,13 +293,13 @@ int main(int argc, char* argv[])
 			if (wait_till_socket_copying_is_done() != 0)
 				return -1;
 		}
-		else
+		else if (errno != EINTR) // if EINTR then ctrl+c was pressed, finish
 		{
 			perror("ERROR main - could not accept request from socket");
 			return -1;
 		}
     }
-
+	
 	return clean_up(server_socket, &attr_req_thread);
 }
 
@@ -465,6 +456,31 @@ int init_request_thread_attr(pthread_attr_t* attr)
 
 
 
+void set_exit_flat(int val)
+{
+	is_running = 0;
+}
+
+
+
+int start_listening_sigint()
+{
+	struct sigaction act;
+	memset(&act, '\0', sizeof(act));
+
+	act.sa_handler = &set_exit_flat;
+
+	if (sigaction(SIGINT, &act, NULL) != 0)
+	{
+		perror("ERROR start_listening_siginit - could not perform sigaction");
+		return 0;
+	}
+
+	return 1;
+}
+
+
+
 int wait_till_socket_copying_is_done()
 {
 	if (pthread_mutex_lock(&mutex_csd) != 0)
@@ -518,6 +534,13 @@ int clean_up(int server_socket, pthread_attr_t* p_attr)
 	if (pthread_attr_destroy(p_attr) != 0)
 	{
 		printf("ERROR clean up - could not destroy attributes\n");
+		return -1;
+	}
+
+	int destroy_user_dao_res = destroy_user_dao();
+	if (destroy_user_dao_res != DESTROY_USER_DAO_SUCCESS)
+	{
+		printf("ERROR clean up - could not destroy user dao. Code: %d\n", destroy_user_dao_res);
 		return -1;
 	}
 
@@ -593,33 +616,28 @@ void register_user(int socket)
 {
 	uint8_t result = REGISTER_SUCCESS;
 	
-	if (get_num_of_users() < MAX_NUM_OF_USERS)
+	char username[MAX_USERNAME_LEN + 1];
+	if (read_username(socket, username) > 0)	// username specified
 	{
-		char username[MAX_USERNAME_LEN + 1];
-		if (read_username(socket, username) > 0)	// username specified
+		if (is_username_valid(username))
 		{
-			if (is_username_valid(username))
+			int create_user_res = create_user(username);
+
+			switch (create_user_res)
 			{
-				if (!is_registered(username))
-				{
-					if (store_user(username) != STORE_USER_SUCCESS)
-						result = REGISTER_OTHER_ERROR;
-				}
-				else
-					result = REGISTER_NON_UNIQUE_USERNAME;
+				case CREATE_USER_SUCCESS 	: result = REGISTER_SUCCESS; break;
+				case CREATE_USER_ERR_EXISTS : result = REGISTER_NON_UNIQUE_USERNAME; break;
+				default : 
+					result = REGISTER_OTHER_ERROR;
+					perror("ERROR register user other error");
 			}
-			else
-				result = REGISTER_OTHER_ERROR;
 		}
-		else	// no username
-		{
-			printf("ERROR register_user - no username\n");
+		else
 			result = REGISTER_OTHER_ERROR;
-		}
 	}
-	else
+	else	// no username
 	{
-		printf("ERROR register_user - reached limit of users\n");
+		printf("ERROR register_user - no username\n");
 		result = REGISTER_OTHER_ERROR;
 	}
 
@@ -629,15 +647,6 @@ void register_user(int socket)
 	
 	if (send_msg(socket, response, 2) != 0)
 		printf("ERROR register_user - could not send message\n");
-}
-
-
-
-uint32_t get_num_of_users()
-{
-	// TODO implement
-	printf("NOT YET IMPLEMENTED get_num_of_users\n");
-	return 0;
 }
 
 
@@ -663,29 +672,6 @@ int is_username_valid(char* username)
 
 
 
-int store_user(char* username)
-{
-	// TODO implement
-	printf("NOT YET IMPLEMENTED store_user\n");
-
-	return STORE_USER_SUCCESS;
-}
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// is_registered
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int is_registered(char* username)
-{
-	// TODO IMPLEMENT
-	printf("NOT YET IMPLEMENTED is_username_unique\n");
-	return 1;
-}
-
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // unregister
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -702,7 +688,7 @@ void unregister(int socket)
 		switch (delete_res)
 		{
 			case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
-			case DELETE_USER_NO_SUCH_USER 	: res = UNREGISTER_NO_SUCH_USER; break;
+			case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
 			default							: res = UNREGISTER_OTHER_ERROR; 
 		}
 	}
@@ -718,15 +704,6 @@ void unregister(int socket)
 	
 	if (send_msg(socket, response, 2) != 0)
 		printf("ERROR unregister - could not send response\n");
-}
-
-
-
-int delete_user(char* username)
-{
-	// TODO IMPLEMENT
-	printf("NOT YET IMPLEMENTED delete_user\n");
-	return DELETE_USER_SUCCESS;
 }
 
 
@@ -867,14 +844,22 @@ void list_content(int socket)
 			{
 				char content_owner[MAX_USERNAME_LEN + 1];
 				if (read_username(socket, content_owner) > 0) // content owner specified
-					num_of_files = get_user_content(content_owner, &content_list);
+				{
+					int get_f_res = get_user_files_list(content_owner, &content_list, 
+						&num_of_files);
+
+					if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
+						res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+					else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
+						res = LIST_CONTENT_OTHER_ERROR;
+				}
 				else // no content owner specified
 					res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
 			}
 			else
 				res = LIST_CONTENT_DISCONNECTED;
 		}
-		else
+		else // requesting user not registered
 			res = LIST_CONTENT_NOT_REGISTERED;
 	}
 	else // no requesting user's username specified
@@ -909,24 +894,7 @@ void list_content(int socket)
 	}
 }
 
-uint32_t get_user_content(char* username, char*** p_user_content)
-{
-	// TODO do real implementation
-	printf("NOT YET IMPLEMENTED get_user_content\n");
 
-	char** user_content = malloc(3 * (sizeof(char*)));
-	for (int i = 0; i < 3; i++)
-	{
-		user_content[i] = malloc(4 * sizeof(char));
-	}
-	strcpy(user_content[0], "f_1");
-	strcpy(user_content[1], "f_2");
-	strcpy(user_content[2], "f_3");
-
-	*p_user_content = user_content;
-
-	return 3;
-}
 
 int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 {
