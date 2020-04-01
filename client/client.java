@@ -4,7 +4,7 @@ import gnu.getopt.Getopt;
 import java.lang.Thread;
 
 
-class client {
+class client implements Runnable{
 
 	static final int OK = 0;
 	static final int ERROR_USER = 1;
@@ -133,7 +133,10 @@ class client {
 			//After checkhing the response, we close the socket
             client_Socket.close();
 
-        }
+		}
+		catch(ConnectException s){
+			System.out.println("c> UNREGISTER FAIL");
+		}
         catch(Exception e) {
             System.out.println("Exception: " + e);
             e.printStackTrace();
@@ -157,7 +160,8 @@ class client {
                 DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
                 //Send to the server the message CONNECT and the username and port of the client
-                outToServer.writeBytes("CONNECT\0");
+				outToServer.writeBytes("CONNECT\0");
+				outToServer.flush();
                 outToServer.writeBytes(user+"\0");
                 outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
 
