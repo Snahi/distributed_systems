@@ -4,7 +4,7 @@ import gnu.getopt.Getopt;
 import java.lang.Thread;
 
 
-class client{
+class client {
 
 	static final int OK = 0;
 	static final int ERROR_USER = 1;
@@ -42,6 +42,45 @@ class client{
 
 	/********************* METHODS ********************/
 	
+
+	public static String readbytes(DataInputStream a) throws IOException {
+        String bytes = "";
+        byte lastcharacter = 'l';
+        byte current = 'r';
+        while (lastcharacter != '\0') {
+            current = a.readByte();
+            bytes = bytes + (char) current;
+            lastcharacter = current;
+        }
+        return bytes;
+    }
+
+
+	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
+    public void run() {
+		//timeout_time ASK IF NECESSARY
+		try {
+            server_Socket.setSoTimeout(1000); 
+        }
+		catch(Exception e){}
+		
+        while(operating_thread == true) {
+            try {
+                Socket client_Socket = server_Socket.accept(); 
+		
+            }
+            catch(SocketTimeoutException e){}
+            catch(IOException ie) {
+                System.out.println("c> Message receiving thread finished execution. Connect again to restore.");
+                ie.printStackTrace();
+            }
+            catch(Exception e){}
+        }
+    }
+
+
+
+
 	/**
 	 * @param user - User name to register in the system
 	 * 
@@ -162,8 +201,10 @@ class client{
                 //Send to the server the message CONNECT and the username and port of the client
 				outToServer.writeBytes("CONNECT\0");
 				outToServer.flush();
-                outToServer.writeBytes(user+"\0");
-                outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
+				outToServer.writeBytes(user+"\0");
+				outToServer.flush();
+				outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
+				outToServer.flush();
 
                 //Receive the message from the server and read it
                 DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
@@ -232,8 +273,10 @@ class client{
             DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
             //Send to the server the message DISCONNECT and the username
-            outToServer.writeBytes("DISCONNECT\0");
-            outToServer.writeBytes(user+"\0");
+			outToServer.writeBytes("DISCONNECT\0");
+			outToServer.flush();
+			outToServer.writeBytes(user+"\0");
+			outToServer.flush();
 
             //Receive the message from the server and read it
             DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
@@ -285,9 +328,78 @@ class client{
 	 */
 	static int publish(String file_name, String description) 
 	{
+		int rc=0;
+		try {
+			
+			/*
+			if (file_name.isBlank()){
+			}
+			if (file_name.length()>256){
+			}
+			if (description.length()>256){
+			}
+			*/
+
+			//Create the socket
+			Socket client_Socket = new Socket(_server, _port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message PUBLISH, the username, the file name and its description
+			outToServer.writeBytes("PUBLISH\0");
+			outToServer.flush();
+			outToServer.writeBytes(username+"\0");
+			outToServer.flush();
+			outToServer.writeBytes(file_name+"\0");
+			outToServer.flush();
+			outToServer.writeBytes(description+"\0");
+			outToServer.flush();
+
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+			byte response = inFromServer.readByte();
+
+			//Switch for the different returning messages from the server
+			switch (response) {
+				case 0: //SUCCESS
+				rc=0;
+				System.out.println("c> PUBLISH OK");
+				break;
+				
+				case 1: //USER DOES NOT EXIST
+				rc=1;
+				System.out.println("c> PUBLISH FAIL, USER DOES NOT EXIST");
+				break;
+				
+				case 2: //USER IS NOT CONNECTED
+				rc=2;
+				System.out.println("c> PUBLISH FAIL, USER NOT CONNECTED");
+				break;
+
+				case 3: //FILE ALREADY PUBLISH
+				rc=3;
+				System.out.println("c> PUBLISH FAIL, CONTENT ALREADY PUBLISHED");
+				break;
+
+				case 4: //ANY OTHER CASE OR ERROR
+				rc=4;
+				System.out.println("c> PUBLISH FAIL");
+				break;
+			}
+			//After checkhing the response, we close the socket
+			client_Socket.close();
+
+		}
+		catch(Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
+			return ERROR;
+		}
+		return rc;
+		/*
 		// Write your code here
 		System.out.println("PUBLISH " + file_name + " " + description);
 		return 0;
+		*/
 	}
 
 	 /**
@@ -297,9 +409,74 @@ class client{
 	 */
 	static int delete(String file_name)
 	{
+		int rc=0;
+		try {
+			
+			/*
+			if (file_name.isBlank()){
+			}
+			if (file_name.length()>256){
+			}
+			*/
+
+			//Create the socket
+			Socket client_Socket = new Socket(_server, _port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message PUBLISH, the username, the file name and its description
+			outToServer.writeBytes("PUBLISH\0");
+			outToServer.flush();
+			outToServer.writeBytes(username+"\0");
+			outToServer.flush();
+			outToServer.writeBytes(file_name+"\0");
+			outToServer.flush();
+
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+			byte response = inFromServer.readByte();
+
+			//Switch for the different returning messages from the server
+			switch (response) {
+				case 0: //SUCCESS
+				rc=0;
+				System.out.println("c> DELETE OK");
+				break;
+				
+				case 1: //USER DOES NOT EXIST
+				rc=1;
+				System.out.println("c> DELETE FAIL, USER DOES NOT EXIST");
+				break;
+				
+				case 2: //USER IS NOT CONNECTED
+				rc=2;
+				System.out.println("c> DELETE FAIL, USER NOT CONNECTED");
+				break;
+
+				case 3: //FILE ALREADY PUBLISH
+				rc=3;
+				System.out.println("c> DELETE FAIL, CONTENT ALREADY PUBLISHED");
+				break;
+
+				case 4: //ANY OTHER CASE OR ERROR
+				rc=4;
+				System.out.println("c> DELETE FAIL");
+				break;
+			}
+			//After checkhing the response, we close the socket
+			client_Socket.close();
+
+		}
+		catch(Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
+			return ERROR;
+		}
+		return rc;
+		/*
 		// Write your code here
 		System.out.println("DELETE " + file_name);
 		return 0;
+		*/
 	}
 
 	 /**
