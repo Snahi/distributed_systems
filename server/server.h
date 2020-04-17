@@ -69,7 +69,7 @@
 // send content list
 #define SEND_CONTENT_LIST_SUCCESS 0
 #define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
-#define SEND_CONTENT_LIST_ERR_FILENAME 
+#define SEND_CONTENT_LIST_ERR_FILENAME 2
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
