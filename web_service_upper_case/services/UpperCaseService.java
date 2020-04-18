@@ -11,6 +11,13 @@ public class UpperCaseService {
 
 
 
+    public static String getUrl()
+    {
+        return String.format(URL_FORMAT, PORT);
+    }
+
+
+
     @WebMethod
     public String upperCase(String str)
     {
