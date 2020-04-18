@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 import gnu.getopt.Getopt;
-import java.lang.Thread;
+import java.lang.*;
 
 
 class client {
@@ -423,8 +423,8 @@ class client {
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
-			//Send to the server the message PUBLISH, the username, the file name and its description
-			outToServer.writeBytes("PUBLISH\0");
+			//Send to the server the message DELETE, the username, the file name and its description
+			outToServer.writeBytes("DELETE\0");
 			outToServer.flush();
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
@@ -484,9 +484,79 @@ class client {
 	 */
 	static int list_users()
 	{
+		int rc=0;
+		try {
+			
+			/*
+			if (file_name.isBlank()){
+			}
+			if (file_name.length()>256){
+			}
+			*/
+
+			//Create the socket
+			Socket client_Socket = new Socket(_server, _port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message PUBLISH, the username, the file name and its description
+			outToServer.writeBytes("LIST_USERS\0");
+			outToServer.flush();
+			outToServer.writeBytes(username+"\0");
+			outToServer.flush();
+
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+			byte response = inFromServer.readByte();
+
+			//Switch for the different returning messages from the server
+			switch (response) {
+				case 0: //SUCCESS
+				rc=0;
+				String susers = readbytes(inFromServer);
+				int nusers = Integer.parseInt(susers);
+				System.out.println("c> LIST_USERS OK");
+				while (nusers!=0){
+					String aux = readbytes(inFromServer);
+					System.out.print("\t"+aux);
+					aux = readbytes(inFromServer);
+					System.out.print("\t"+aux);
+					aux = readbytes(inFromServer);
+					System.out.println("\t"+aux);
+					nusers--;
+				}
+				break;
+				
+				case 1: //USER DOES NOT EXIST
+				rc=1;
+				System.out.println("c> LIST_USERS FAIL , USER DOES NOT EXIST");
+				break;
+				
+				case 2: //USER IS NOT CONNECTED
+				rc=2;
+				System.out.println("c> LIST_USERS FAIL , USER NOT CONNECTED");
+				break;
+
+				case 3: //ANY OTHER CASE OR ERROR
+				rc=3;
+				System.out.println("c>LIST_USERS FAIL");
+				break;
+
+			}
+			//After checkhing the response, we close the socket
+			client_Socket.close();
+
+		}
+		catch(Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
+			return ERROR;
+		}
+		return rc;
+		/*
 		// Write your code here
 		System.out.println("LIST_USERS " );
 		return 0;
+		*/
 	}
 
 
@@ -497,9 +567,86 @@ class client {
 	 */
 	static int list_content(String user_name)
 	{
+		int rc=0;
+		try {
+			
+			/*
+			if (file_name.isBlank()){
+			}
+			if (file_name.length()>256){
+			}
+			*/
+
+			//Create the socket
+			Socket client_Socket = new Socket(_server, _port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message PUBLISH, the username, the file name and its description
+			outToServer.writeBytes("LIST_CONTENT\0");
+			outToServer.flush();
+			outToServer.writeBytes(username+"\0");
+			outToServer.flush();
+			outToServer.writeBytes(user_name+"\0");
+			outToServer.flush();
+
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+			byte response = inFromServer.readByte();
+
+			//Switch for the different returning messages from the server
+			switch (response) {
+				case 0: //SUCCESS
+				rc=0;
+				String sfiles = readbytes(inFromServer);
+				int nfiles = Integer.parseInt(sfiles);
+				System.out.println("c> LIST_CONTENT OK");
+				while (nfiles!=0){
+					String aux = readbytes(inFromServer);
+					System.out.print("\t"+aux);
+					aux = readbytes(inFromServer);
+					System.out.print("\t"+aux);
+					aux = readbytes(inFromServer);
+					System.out.println("\t"+aux);
+					nfiles--;
+				}
+				break;
+				
+				case 1: //USER DOES NOT EXIST
+				rc=1;
+				System.out.println("c> LIST_CONTENT FAIL , USER DOES NOT EXIST");
+				break;
+				
+				case 2: //USER IS NOT CONNECTED
+				rc=2;
+				System.out.println("c> LIST_CONTENT FAIL , USER NOT CONNECTED");
+				break;
+
+				case 3: //ANY OTHER CASE OR ERROR
+				rc=3;
+				System.out.println("c>LIST_CONTENT FAIL, REMOTE USER DOES NOT EXITS");
+				break;
+
+				case 4: //ANY OTHER CASE OR ERROR
+				rc=4;
+				System.out.println("c>LIST_CONTENT FAIL");
+				break;
+
+			}
+			//After checkhing the response, we close the socket
+			client_Socket.close();
+
+		}
+		catch(Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
+			return ERROR;
+		}
+		return rc;
+		/*
 		// Write your code here
 		System.out.println("LIST_CONTENT " + user_name);
 		return 0;
+		*/
 	}
 
 	 /**
