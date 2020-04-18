@@ -39,6 +39,7 @@ int is_copied;
 */
 int is_running = 1;
 
+char* connected;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // main
@@ -115,13 +116,26 @@ int main(int argc, char* argv[])
 
 
 
+void connect_users(int port){
 
-/*
-void connect(int socket){
-	struct vector_data vector;
+/*creating a vector array called connected*/
+connected= vector_create();
+char username[MAX_USERNAME_LEN + 1];
+int portno=port;
+
+	/*If the port number recieved is -1 it means the por number is invalid*/
+	if(portno<0){
+		printf("Port number is not valid");
+	}
 	
+	/*check if the username exists*/
+	if(check_user(username)==0){
+		/*check if username exist in vector*/
+		/*If username doesnt exist in the vector than add them*/
+		vector_add(&connected, (char*)username);
+	}
+
 }
-*/
 
 int obtain_port(int argc, char* argv[])
 {

@@ -58,6 +58,8 @@ int destroy_user_dao();
         CREATE_USER_ERR_DIRECTORY   - could not create user directory
 */
 int create_user(char* username);
+
+int check_user(char* name);
 /*
     deletes the user with the specified username.
     Returns:

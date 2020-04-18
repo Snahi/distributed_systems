@@ -69,7 +69,7 @@
 // send content list
 #define SEND_CONTENT_LIST_SUCCESS 0
 #define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
-#define SEND_CONTENT_LIST_ERR_FILENAME 2
+#define SEND_CONTENT_LIST_ERR_FILENAME 
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,6 +205,5 @@ void list_content(int socket);
 int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
 /*Server recieves a connect request and if all conditions are met then connects the requested
-users
-void connect(int socket);
-*/
+users*/
+void connect_users(int socket);
