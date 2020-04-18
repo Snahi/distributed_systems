@@ -21,6 +21,7 @@ public class UpperCaseService {
     @WebMethod
     public String upperCase(String str)
     {
+        str = str == null ? "" : str;
         return str.toUpperCase();
     }
 }
