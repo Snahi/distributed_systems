@@ -28,6 +28,7 @@
 // global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 pthread_mutex_t mutex_storage;
+user** connected_users;
 
 
 
@@ -49,6 +50,9 @@ int init_user_dao()
         return INIT_USER_DAO_ERR_MUTEX_INIT;
     }
 
+    // initialize connected users list
+    connected_users = vector_create();
+
     return INIT_USER_DAO_SUCCESS;
 }
 
@@ -64,6 +68,15 @@ int destroy_user_dao()
     {
         return DESTROY_USER_DAO_ERR_MUTEX;
     }
+
+    // free connected users memory
+    int numOfConnectedUsers = vector_size(connected_users);
+    for (int i = 0; i < numOfConnectedUsers; i++)
+    {
+        free(connected_users[i]);
+    }
+
+    vector_free(connected_users);
 
     return DESTROY_USER_DAO_SUCCESS;
 }
@@ -286,3 +299,46 @@ int is_registered(char* username)
 
     return stat(dir_path, &st) == 0 ? 1 : 0;
 }
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// connect user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int is_in_connected_users(char* name)
+{
+    int numOfConnectedUsers = vector_size(connected_users);
+    for (int i = 0; i < numOfConnectedUsers; i++)
+    {
+        if (strcmp(connected_users[i]->username, name) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+
+
+int add_connected_user(char* name, struct in_addr ip, char* port)
+{
+    if (is_in_connected_users(name))
+        return ADD_CONNECTED_USERS_ALREADY_EXISTS;
+    else
+    {
+        user* p_user = malloc(sizeof(user));
+        strcpy(p_user->username, name);
+        memcpy(p_user->ip, &ip, sizeof(ip));
+        strcpy(p_user->port, port);
+
+        vector_add(&connected_users, p_user);
+        
+        return ADD_CONNECTED_USERS_SUCCESS;
+    }
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// disconnect user
+///////////////////////////////////////////////////////////////////////////////////////////////////

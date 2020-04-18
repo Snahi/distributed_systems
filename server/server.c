@@ -23,6 +23,8 @@
 #define DEFAULT_PORT 7777
 #define MAX_PORT_NUMBER 49151
 #define MIN_PORT_NUMBER 1024
+#define MAX_PORT_STR "49151"
+#define MAX_PORT_STR_SIZE strlen(MAX_PORT_STR)
 // ip address
 #define MAX_IP_ADDR_LEN 15
 // main socket
@@ -34,6 +36,7 @@
 // request
 #define MAX_REQ_TYPE_LEN 20
 #define REQ_REGISTER "REGISTER"
+#define REQ_CONNECT "CONNECT"
 #define REQ_UNREGISTER "UNREGISTER"
 #define REQ_LIST_USERS "LIST_USERS"
 #define REQ_LIST_CONTENT "LIST_CONTENT"
@@ -70,19 +73,19 @@
 #define SEND_CONTENT_LIST_SUCCESS 0
 #define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
 #define SEND_CONTENT_LIST_ERR_FILENAME 2
+// connect
+#define CONNECT_USER_SUCCESS 0
+#define CONENCT_USER_ERR_NOT_REGISTERED 1
+#define CONNECT_USER_ERR_ALREADY_CONNECTED 2
+#define CONNECT_USER_ERR_OTHER 3
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// structs
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct user_data {
-	char username[MAX_USERNAME_LEN + 1];
-	char ip[MAX_IP_ADDR_LEN + 1];
-	char port[6];
+struct req_thread_args {
+	int socket;
+	struct in_addr addr;
 };
 
-typedef struct user_data user;
 
 
 
@@ -148,13 +151,13 @@ int clean_up(int server_socket, pthread_attr_t* p_attr);
 	mutex_csd while copying the client socket to a local variable and when it is finish it will
 	signal on cond_csd.
 */
-void* manage_request(void* p_socket);
+void* manage_request(void* p_args);
 /*
 	Reads from the socket in order to identify request type, i.e. register, unregister, connect....
 	If the request could be identified then a request specific function is called. If the request
 	could not be identified an approporiate message will be send back to the socket. 
 */
-void identify_and_process_request(int socket);
+void identify_and_process_request(struct req_thread_args* p_args);
 
 void register_user(int socket);
 
@@ -176,6 +179,9 @@ void unregister(int socket);
 	Returns 1 if the user is connected and 0 if no
 */
 int is_connected(char* username);
+void connect_user(int socket, struct in_addr);
+
+int read_port(int socket, char* port);
 
 void list_users(int socket);
 /*
@@ -275,19 +281,23 @@ int main(int argc, char* argv[])
 	struct sockaddr_in client_addr;
 	int client_socket;
     socklen_t clinet_addr_size = sizeof(struct sockaddr_in);
-
+	
 	// start detecting ctrl + c
 	if (!start_listening_sigint())
 		return -1;
 
+	struct req_thread_args args;
+	
     while (is_running)
     {
         // accept connection from a client
         client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &clinet_addr_size);
+		args.socket = client_socket;
+		args.addr = client_addr.sin_addr;
 
 		if (client_socket >= 0)
 		{
-			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &client_socket) != 0)
+			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &args) != 0)
 				perror("ERROR main - could not create request thread");
 
 			if (wait_till_socket_copying_is_done() != 0)
@@ -553,9 +563,9 @@ int clean_up(int server_socket, pthread_attr_t* p_attr)
 // manage_request
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void* manage_request(void* p_socket)
+void* manage_request(void* p_args)
 {
-	int socket = -1;
+	struct req_thread_args args;
 
 	// lock the main thread until the socket is copied
 	if (pthread_mutex_lock(&mutex_csd) != 0)
@@ -564,7 +574,7 @@ void* manage_request(void* p_socket)
 		return NULL;
 	}
 
-	memcpy(&socket, p_socket, sizeof(int));
+	memcpy(&args, p_args, sizeof(args));
 	is_copied = 1;
 	
 	// notify that socket was copied
@@ -575,20 +585,19 @@ void* manage_request(void* p_socket)
 		printf("ERROR manage_request - could not unlock mutex\n");
 
 	// process the request
-	if (socket > 0)
-		identify_and_process_request(socket);
-
-	// close the client socket
-	if (close(socket) != 0)
-		perror("ERROR manage request - could not close client socket");
+	identify_and_process_request(&args);
 
 	pthread_exit(NULL);
 }
 
 
 
-void identify_and_process_request(int socket)
+void identify_and_process_request(struct req_thread_args* p_args)
 {
+	int socket = p_args->socket;
+	if (socket < 0)
+		return;
+	
 	char req_type[MAX_REQ_TYPE_LEN + 1];
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
@@ -596,6 +605,8 @@ void identify_and_process_request(int socket)
 	// process request type
 	if (strcmp(req_type, REQ_REGISTER) == 0)
 		register_user(socket);
+	else if (strcmp(req_type, REQ_CONNECT) == 0)
+		connect_user(socket, p_args->addr);
 	else if (strcmp(req_type, REQ_UNREGISTER) == 0)
 		unregister(socket);
 	else if (strcmp(req_type, REQ_LIST_USERS) == 0)
@@ -604,6 +615,10 @@ void identify_and_process_request(int socket)
 		list_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
+
+	// close the client socket
+	if (close(socket) != 0)
+		perror("ERROR manage request - could not close client socket");
 }
 
 
@@ -708,7 +723,45 @@ void unregister(int socket)
 
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// connect
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+void connect_user(int socket, struct in_addr addr)
+{
+	uint8_t res = CONNECT_USER_SUCCESS;
+
+	char username[MAX_USERNAME_LEN + 1];
+	if (read_username(socket, username) > 0) // username specified
+	{
+		if (is_registered(username))
+		{
+			char port[MAX_PORT_STR_SIZE + 1];
+			if (read_port(socket, port) > 0)
+			{
+				int add_res = add_connected_user(username, addr, port);
+				if (add_res == ADD_CONNECTED_USERS_SUCCESS)
+					res = CONNECT_USER_SUCCESS;
+				else if (add_res == ADD_CONNECTED_USERS_ALREADY_EXISTS)
+					res = CONNECT_USER_ERR_ALREADY_CONNECTED;
+				else
+					res = CONNECT_USER_ERR_OTHER;
+			}
+			else // port not specified
+				res = CONNECT_USER_ERR_OTHER;
+		}
+		else
+			res = CONENCT_USER_ERR_NOT_REGISTERED;
+	}
+	else // username not specified
+		res = CONNECT_USER_ERR_OTHER;
+	
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR connect - could not send response\n");
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // is_connected
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -926,6 +979,20 @@ int read_username(int socket, char* username)
 	int total_read = read_line(socket, username, MAX_USERNAME_LEN);
 	username[MAX_USERNAME_LEN] = '\0'; // just in case if the username was not finished properly
 	
+	return total_read;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_port
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_port(int socket, char* port)
+{
+	int total_read = read_line(socket, port, MAX_PORT_STR_SIZE);
+	port[MAX_PORT_STR_SIZE] = '\0';
+
 	return total_read;
 }
 	
