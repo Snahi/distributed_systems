@@ -32,6 +32,7 @@ pthread_cond_t cond_csd;
 	used to check whether main thread should still wait for request thread (client socket not
 	yet copied)
 */
+
 int is_copied;
 /*
 	flat to mark if the programm should continue. if 1 then continue, if 0 then the main loop
@@ -39,7 +40,7 @@ int is_copied;
 */
 int is_running = 1;
 
-char* connected;
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // main
@@ -115,27 +116,6 @@ int main(int argc, char* argv[])
 }
 
 
-
-void connect_users(int port){
-
-/*creating a vector array called connected*/
-connected= vector_create();
-char username[MAX_USERNAME_LEN + 1];
-int portno=port;
-
-	/*If the port number recieved is -1 it means the por number is invalid*/
-	if(portno<0){
-		printf("Port number is not valid");
-	}
-	
-	/*check if the username exists*/
-	if(check_user(username)==0){
-		/*check if username exist in vector*/
-		/*If username doesnt exist in the vector than add them*/
-		vector_add(&connected, (char*)username);
-	}
-
-}
 
 int obtain_port(int argc, char* argv[])
 {
@@ -430,6 +410,8 @@ void identify_and_process_request(int socket)
 		list_users(socket);
 	else if (strcmp(req_type, REQ_LIST_CONTENT) == 0)
 		list_content(socket);
+	/*else if
+		connecct_user()*/
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
 }
@@ -539,7 +521,52 @@ void unregister(int socket)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // is_connected
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+void connect_users(int socket){
 
+char username[MAX_USERNAME_LEN + 1];
+	
+	/*check if the username is registerd*/
+	if(is_registerd(username)==1){
+
+		/*reads the username from the socket provided*/
+		if(read_username(socket,username)>0){	
+		
+		/*check if username exist in vector*/
+			if(is_in_connected_users(username)==0){
+				/*If username doesnt exist in the vector than add them*/
+				add_connected(username);
+			}
+			else{
+				printf("The user is already connected");
+			}
+		}
+	}
+	else{
+		printf("ERROR user not registered");
+	}
+}
+
+void disconnect_user(int socket){
+/**/
+/*find user in the vector*/
+/*remove the user*/
+char username[MAX_USERNAME_LEN+1];
+
+/*read from socket*/
+	if(read_username(socket,username)>0){
+		/*check if username exists in connected vector*/
+		if(is_in_connected_users(username)==1){
+			/*If username exists in vector,gets its posiiton and deletes it*/
+			remove_connected_user(username);
+		}	
+		else{
+			printf("This user is not connected.");
+		}	
+	}
+
+}
+
+/*
 int is_connected(char* username)
 {
 	// TODO IMPLEMENT
@@ -547,7 +574,7 @@ int is_connected(char* username)
 
 	return 1;
 }
-
+*/
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

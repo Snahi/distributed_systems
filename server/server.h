@@ -75,7 +75,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
 struct user_data {
 	char username[MAX_USERNAME_LEN + 1];
 	char ip[MAX_IP_ADDR_LEN + 1];
@@ -83,7 +83,7 @@ struct user_data {
 };
 
 typedef struct user_data user;
-
+*/
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // function declarations
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,7 +141,23 @@ int wait_till_socket_copying_is_done();
 int clean_up(int server_socket, pthread_attr_t* p_attr);
 /*
 	Once a request arrives to the server through the general socket (the socket bound to the
-	port specified in cmd) the server will create a new thread for processing the request and
+	port specifiedif (read_username(socket, username) > 0)	// username specified
+	{
+		int delete_res = delete_user(username);
+
+		switch (delete_res)
+		{
+			case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
+			case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
+			default							: res = UNREGISTER_OTHER_ERROR; 
+		}
+	}
+	else
+	{
+		printf("ERROR unregister - no username specified\n");
+		res = UNREGISTER_OTHER_ERROR;
+	}
+	 in cmd) the server will create a new thread for processing the request and
 	this is the function which will be runnig in the newly created thread. The function will lock 
 	mutex_csd while copying the client socket to a local variable and when it is finish it will
 	signal on cond_csd.
@@ -166,7 +182,7 @@ int read_username(int socket, char* username);
 	checks if username is valid.
 	Returns 1 if yes 0 if no
 */
-int is_username_valid(char* username);
+/*int is_username_valid(char* username);*/
 
 void unregister(int socket);
 /*
@@ -207,3 +223,5 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 /*Server recieves a connect request and if all conditions are met then connects the requested
 users*/
 void connect_users(int socket);
+
+void disconnect_user(int socket);

@@ -1,4 +1,8 @@
+
+ 
 #include <stdint.h>
+#include "vec.h"
+#include <netinet/in.h>
 /*
     encapsulates functions dealing with physicall storage.
     IMPORTANT before any operation will be performed it is required to call the init() function and
@@ -7,13 +11,16 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // constants
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+#define MAX_IP_ADDR_LEN 15
 // init
 #define INIT_USER_DAO_SUCCESS 0
 #define INIT_USER_DAO_ERR_FOLDER_CREATION 1
-#define INIT_USER_DAO_ERR_MUTEX_INIT 2
+#define INIT_USER_DAO_ERR_STORAGE_MUTEX_INIT 2
+#define INIT_USER_DAO_ERR_CONNECTED_USERS_MUTEX_INIT 3
 // destroy
 #define DESTROY_USER_DAO_SUCCESS 0
-#define DESTROY_USER_DAO_ERR_MUTEX 1
+#define DESTROY_USER_DAO_ERR_STORAGE_MUTEX 1
+#define DESTROY_USER_DAO_ERR_CONNECTED_USERS_MUTEX 2
 // create user
 #define CREATE_USER_SUCCESS 0
 #define CREATE_USER_ERR_EXISTS 1
@@ -31,6 +38,28 @@
 #define GET_USER_FILES_LIST_ERR_MUTEX_LOCK 2
 #define GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK 3
 #define GET_USER_FILES_LIST_ERR_CLOSE_DIR 4
+// connected users
+#define MAX_USERNAME_LEN 256
+// add connected user
+#define ADD_CONNECTED_USERS_SUCCESS 0
+#define ADD_CONNECTED_USERS_ALREADY_EXISTS 1
+#define ADD_CONNECTED_USER_FULL 2
+#define ADD_CONNECTED_USER_MUTEX_LOCK_ERROR 3
+#define ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR 4
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// structs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+struct user_data {
+	char username[MAX_USERNAME_LEN + 1];
+	char ip[MAX_IP_ADDR_LEN + 1];
+	char port[6];
+};
+typedef struct user_data user;
 
 
 
@@ -58,8 +87,6 @@ int destroy_user_dao();
         CREATE_USER_ERR_DIRECTORY   - could not create user directory
 */
 int create_user(char* username);
-
-int check_user(char* name);
 /*
     deletes the user with the specified username.
     Returns:
@@ -88,4 +115,16 @@ int get_user_files_list(char* username, char*** p_user_files, uint32_t* p_quanti
 	Returns 1 if the user is registered and 0 if no
 */
 int is_registered(char* username);
+/*
+    Returns:
+        1 - connected
+        0 - not connected
+*/
+int is_in_connected_users(char* name);
+
+int add_connected_user(char* name, struct in_addr ip, char* port);
+
+void add_connected(char* name);
+
+void remove_connected_user(char* name);
 

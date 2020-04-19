@@ -1,3 +1,4 @@
+
 #include "user_dao.h"
 #include <errno.h>
 #include <sys/stat.h>
@@ -21,6 +22,8 @@
 #define DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER 1
 #define DELETE_ALL_USER_FILES_ERR_REMOVE 2
 #define DELETE_ALL_USER_FILES_ERR_CLOSE_DIR 3
+// connect
+#define MAX_NUMBER_OF_CONNECTED_USERS 4000000
 
 
 
@@ -28,6 +31,8 @@
 // global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 pthread_mutex_t mutex_storage;
+pthread_mutex_t mutex_connected_users;
+user** connected_users;
 
 
 
@@ -43,11 +48,20 @@ int init_user_dao()
         return INIT_USER_DAO_ERR_FOLDER_CREATION;                   // already existed
     }
 
-    // initialize mutex
+    // initialize storage mutex
     if (pthread_mutex_init(&mutex_storage, NULL) != 0)
     {
-        return INIT_USER_DAO_ERR_MUTEX_INIT;
+        return INIT_USER_DAO_ERR_STORAGE_MUTEX_INIT;
     }
+
+    // initialize connected users mutex
+    if (pthread_mutex_init(&mutex_connected_users, NULL) != 0)
+    {
+        return INIT_USER_DAO_ERR_CONNECTED_USERS_MUTEX_INIT;
+    }
+
+    // initialize connected users list
+    connected_users = vector_create();
 
     return INIT_USER_DAO_SUCCESS;
 }
@@ -62,8 +76,22 @@ int destroy_user_dao()
 {
     if (pthread_mutex_destroy(&mutex_storage) != 0)
     {
-        return DESTROY_USER_DAO_ERR_MUTEX;
+        return DESTROY_USER_DAO_ERR_STORAGE_MUTEX;
     }
+
+    if (pthread_mutex_destroy(&mutex_connected_users) != 0)
+    {
+        return DESTROY_USER_DAO_ERR_CONNECTED_USERS_MUTEX;
+    }
+
+    // free connected users memory
+    int numOfConnectedUsers = vec_size(connected_users);
+    for (int i = 0; i < numOfConnectedUsers; i++)
+    {
+        free(connected_users[i]);
+    }
+
+    vector_free(connected_users);
 
     return DESTROY_USER_DAO_SUCCESS;
 }
@@ -96,18 +124,7 @@ int create_user(char* name)
     return CREATE_USER_SUCCESS;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// check_user
-///////////////////////////////////////////////////////////////////////////////////////////////////
- 
- int check_user(char* name){
-     if(mkdir(name,S_IRWXU)!=0){
-        if(errno==EEXIST)
-        return 1; 
-     }
-     return 0;
 
- }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // delete_user
@@ -296,4 +313,90 @@ int is_registered(char* username)
     struct stat st = {0};
 
     return stat(dir_path, &st) == 0 ? 1 : 0;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// connect user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int is_in_connected_users(char* name)
+{
+    int numOfConnectedUsers = vec_size(connected_users);
+    for (int i = 0; i < numOfConnectedUsers; i++)
+    {
+        if (strcmp(connected_users[i]->username, name) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+
+
+int add_connected_user(char* name, struct in_addr ip, char* port)
+{
+    int res = ADD_CONNECTED_USERS_SUCCESS;
+
+    if (pthread_mutex_lock(&mutex_connected_users) != 0)
+    {
+        printf("ERROR add_connected_user - could not lock mutex\n");
+        res = ADD_CONNECTED_USER_MUTEX_LOCK_ERROR;
+    }
+    else
+    {
+        if (is_in_connected_users(name))
+            res = ADD_CONNECTED_USERS_ALREADY_EXISTS;
+        else
+        {
+            if (vec_size(connected_users) == MAX_NUMBER_OF_CONNECTED_USERS)
+                res = ADD_CONNECTED_USER_FULL;
+            else
+            {
+                user* p_user = malloc(sizeof(user));
+                strcpy(p_user->username, name);
+                memcpy(p_user->ip, &ip, sizeof(ip));
+                strcpy(p_user->port, port);
+
+                vector_add(&connected_users, p_user);
+
+                res = ADD_CONNECTED_USERS_SUCCESS;
+            }
+        }
+
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+        {
+            printf("ERROR add_connected_user - could not unlock mutex\n");
+            res = ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR;
+        }
+    }
+
+    return res;
+}
+
+void add_connected(char* name){
+    struct in_addr ip;
+    char * port;
+
+    user* p_user = malloc(sizeof(user));
+    strcpy(p_user->username,name);
+    memcpy(p_user->ip, &ip, sizeof(ip));
+    strcpy(p_user->port, port);
+
+    add_connected_user(name,ip, port);
+
+}
+
+void remove_connected_user(char*name){
+
+    /*traverse the vector*/
+    int totalConnectedUsers= vec_size(connected_users);
+    for (int i = 0; i < totalConnectedUsers; i++)
+    {
+        if (strcmp(connected_users[i]->username, name) == 0)
+            vector_remove(&connected_users,i);
+    }
+
+    /*once the username is found, remove it*/
 }
