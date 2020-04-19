@@ -556,11 +556,12 @@ void connect_user(int socket, struct in_addr addr)
 }
 
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// disconnect
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 void disconnect_user(int socket){
-
-	/*Error for is_connected*/
-	int is_connected_res;
-
 	//variable for the output of error
 	uint8_t res= DISCONNECT_USER_SUCCESS;
 
@@ -570,9 +571,16 @@ void disconnect_user(int socket){
 	{
 		if(is_registered(username))
 		{
-			if(is_connected("username",&is_connected_res)==IS_CONNECTED_SUCCESS){
-				remove_connected_user(username);
-				res=DISCONNECT_USER_SUCCESS;
+			/*Error for is_connected*/
+			int is_connected_res = -1;
+			if(is_connected("username",&is_connected_res)){
+				if (is_connected_res == IS_CONNECTED_SUCCESS)
+				{
+					remove_connected_user(username);
+					res=DISCONNECT_USER_SUCCESS;
+				}
+				else
+					res=DISCONNECT_USER_ERR_OTHER;			
 			}
 			else{
 				res=DISCONNECT_USER_ERR_NOT_CONNECTED;
