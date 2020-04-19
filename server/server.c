@@ -551,6 +551,7 @@ void connect_user(int socket, struct in_addr addr)
 	else // username not specified
 		res = CONNECT_USER_ERR_OTHER;
 	
+	printf("connect res: %d\n", res);
 	if (send_msg(socket, (char*) &res, 1) != 0)
 		printf("ERROR connect - could not send response\n");
 }
