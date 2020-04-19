@@ -21,6 +21,8 @@
 #define DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER 1
 #define DELETE_ALL_USER_FILES_ERR_REMOVE 2
 #define DELETE_ALL_USER_FILES_ERR_CLOSE_DIR 3
+// connect
+#define MAX_NUMBER_OF_CONNECTED_USERS 4000000
 
 
 
@@ -326,6 +328,9 @@ int add_connected_user(char* name, struct in_addr ip, char* port)
         return ADD_CONNECTED_USERS_ALREADY_EXISTS;
     else
     {
+        if (vector_size(connected_users) == MAX_NUMBER_OF_CONNECTED_USERS)
+            return ADD_CONNECTED_USER_FULL;
+            
         user* p_user = malloc(sizeof(user));
         strcpy(p_user->username, name);
         memcpy(p_user->ip, &ip, sizeof(ip));

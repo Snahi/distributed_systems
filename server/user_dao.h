@@ -39,6 +39,7 @@
 // add connected user
 #define ADD_CONNECTED_USERS_SUCCESS 0
 #define ADD_CONNECTED_USERS_ALREADY_EXISTS 1
+#define ADD_CONNECTED_USER_FULL 2
 
 
 
