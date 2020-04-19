@@ -447,13 +447,14 @@ int get_connected_users(user*** p_users)
 
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// remove_connected_user
+///////////////////////////S////////////////////////////////////////////////////////////////////////
+// remove_connected_userS
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void remove_connected_user(char*name){
-
+   
+   int totalConnectedUsers= vec_size(connected_users);
+    
     /*traverse the vector*/
-    int totalConnectedUsers= vec_size(connected_users);
     for (int i = 0; i < totalConnectedUsers; i++)
     {
         if (strcmp(connected_users[i]->username, name) == 0)
@@ -461,5 +462,4 @@ void remove_connected_user(char*name){
             vector_remove(&connected_users,i);
     }
 
-    /*once the username is found, remove it*/
 }
