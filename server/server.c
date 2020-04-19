@@ -651,12 +651,8 @@ void register_user(int socket)
 		printf("ERROR register_user - no username\n");
 		result = REGISTER_OTHER_ERROR;
 	}
-
-	char response[2];
-	response[0] = result;
-	response[1] = '\0';
 	
-	if (send_msg(socket, response, 2) != 0)
+	if (send_msg(socket, (char*) &result, 1) != 0)
 		printf("ERROR register_user - could not send message\n");
 }
 
@@ -709,11 +705,7 @@ void unregister(int socket)
 		res = UNREGISTER_OTHER_ERROR;
 	}
 	
-	char response[2];
-	response[0] = res;
-	response[1] = '\0';
-	
-	if (send_msg(socket, response, 2) != 0)
+	if (send_msg(socket, (char*) &res, 1) != 0)
 		printf("ERROR unregister - could not send response\n");
 }
 
@@ -788,11 +780,8 @@ void list_users(int socket)
 	}
 
 	// send result
-	char response_res_code[2];
-	response_res_code[0] = res;
-	response_res_code[1] = '\0';
 
-	if (send_msg(socket, response_res_code, 2) == 0)
+	if (send_msg(socket, (char*) &res, 1) == 0)
 	{
 		if (res == LIST_USERS_SUCCESS)
 		{
@@ -905,11 +894,8 @@ void list_content(int socket)
 	}
 
 	// send result
-	char response_res_code[2];
-	response_res_code[0] = res;
-	response_res_code[1] = '\0';
 
-	if (send_msg(socket, response_res_code, 2) == 0)
+	if (send_msg(socket, (char*) &res, 1) == 0)
 	{
 		if (res == LIST_CONTENT_SUCCESS)
 		{
