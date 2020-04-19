@@ -50,8 +50,7 @@ class client {
         byte current = 'r';
         while (lastcharacter != '\0') {
             current = a.readByte();
-			if (current != '\0')
-				bytes = bytes + (char) current;
+            bytes = bytes + (char) current;
             lastcharacter = current;
         }
         return bytes;
@@ -221,8 +220,7 @@ class client {
 				outToServer.flush();
 				outToServer.writeBytes(user+"\0");
 				outToServer.flush();
-				String aux=String.valueOf(server_Socket.getLocalPort());
-				outToServer.writeBytes(aux+"\0");
+				outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
 				outToServer.flush();
 
                 //Receive the message from the server and read it

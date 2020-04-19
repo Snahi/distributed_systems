@@ -388,6 +388,7 @@ int add_connected_user(char* name, struct in_addr ip, char* port)
 int is_connected(char* username, int* p_err)
 {
     int res = IS_CONNECTED_SUCCESS;
+    int connected = 0;
 
     if (pthread_mutex_lock(&mutex_connected_users) != 0)
         res = IS_CONNECTED_ERR_LOCK_MUTEX;
@@ -397,17 +398,17 @@ int is_connected(char* username, int* p_err)
         {
             if (strcmp(connected_users[i]->username, username) == 0)
             {
-                if (pthread_mutex_unlock(&mutex_connected_users) != 0)
-                    res = IS_CONNECTED_ERR_UNLOCK_MUTEX;
-
                 *p_err = res;
-                return 1;
+                connected = 1;
             }
         }
+
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+            res = IS_CONNECTED_ERR_UNLOCK_MUTEX;
     }
 
     *p_err = res;
-    return 0;
+    return connected;
 }
 
 
