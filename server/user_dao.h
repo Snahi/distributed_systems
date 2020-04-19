@@ -147,3 +147,4 @@ int get_connected_users(user*** p_users);
 */
 int is_connected(char* username, int* p_err);
 
+void remove_connected_user(char*name);

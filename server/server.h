@@ -165,6 +165,8 @@ void unregister(int socket);
 
 void connect_user(int socket, struct in_addr);
 
+void disconnect_user(int socket);
+
 int read_port(int socket, char* port);
 
 void list_users(int socket);

@@ -556,6 +556,25 @@ void connect_user(int socket, struct in_addr addr)
 }
 
 
+void disconnect_user(int socket){
+/**/
+/*find user in the vector*/
+/*remove the user*/
+char username[MAX_USERNAME_LEN+1];
+
+/*read from socket*/
+	if(read_username(socket,username)>0){
+		/*check if username exists in connected vector*/
+		if(is_in_connected_users(username)==1){
+			/*If username exists in vector,gets its posiiton and deletes it*/
+			remove_connected_user(username);
+		}	
+		else{
+			printf("This user is not connected.");
+		}	
+	}
+
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // list_users
