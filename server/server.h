@@ -168,12 +168,6 @@ void connect_user(int socket, struct in_addr);
 int read_port(int socket, char* port);
 
 void list_users(int socket);
-/*
-	dynamically allocates an array of users which are connected to the system, so
-	it has to be deleted afterwards.
-	Returns number of connected users
-*/
-uint32_t get_connected_users_list(user** p_users_list);
 
 /*
 	Sends list of users through the socket. First username is send, then ip and finally port.
@@ -184,7 +178,7 @@ uint32_t get_connected_users_list(user** p_users_list);
 	SEND_USERS_LIST_ERR_IP 				- could not send ip
 	SEND_USERS_LIST_ERR_PORT 			- could not send port
 */
-int send_users_list(int socket, user* users_list, uint32_t num_of_users);
+int send_users_list(int socket, user** users_list);
 
 void list_content(int socket);
 /*
