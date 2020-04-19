@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "vec.h"
+#include <netinet/in.h>
 /*
     encapsulates functions dealing with physicall storage.
     IMPORTANT before any operation will be performed it is required to call the init() function and
@@ -7,13 +9,18 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // constants
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+#define MAX_IP_ADDR_LEN 15
 // init
 #define INIT_USER_DAO_SUCCESS 0
 #define INIT_USER_DAO_ERR_FOLDER_CREATION 1
-#define INIT_USER_DAO_ERR_MUTEX_INIT 2
+#define INIT_USER_DAO_ERR_STORAGE_MUTEX_INIT 2
+#define INIT_USER_DAO_ERR_CONNECTED_USERS_MUTEX_INIT 3
 // destroy
 #define DESTROY_USER_DAO_SUCCESS 0
-#define DESTROY_USER_DAO_ERR_MUTEX 1
+#define DESTROY_USER_DAO_ERR_STORAGE_MUTEX 1
+#define DESTROY_USER_DAO_ERR_CONNECTED_USERS_MUTEX 2
+#define DESTROY_USER_DAO_ERR_LOCK_CONNECTED_USERS_MUTEX 3
+#define DESTROY_USER_DAO_ERR_UNLOCK_CONNECTED_USERS_MUTEX 4
 // create user
 #define CREATE_USER_SUCCESS 0
 #define CREATE_USER_ERR_EXISTS 1
@@ -31,6 +38,36 @@
 #define GET_USER_FILES_LIST_ERR_MUTEX_LOCK 2
 #define GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK 3
 #define GET_USER_FILES_LIST_ERR_CLOSE_DIR 4
+// connected users
+#define MAX_USERNAME_LEN 256
+// add connected user
+#define ADD_CONNECTED_USERS_SUCCESS 0
+#define ADD_CONNECTED_USERS_ALREADY_EXISTS 1
+#define ADD_CONNECTED_USER_FULL 2
+#define ADD_CONNECTED_USER_MUTEX_LOCK_ERROR 3
+#define ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR 4
+// get connected users lis
+#define GET_CONNECTED_USERS_LIST_SUCCESS 0
+#define GET_CONNECTED_USERS_LIST_ERR_LOCK_MUTEX 1
+#define GET_CONNECTED_USERS_LIST_ERR_UNLOCK_MUTEX 2
+// is connected
+#define IS_CONNECTED_SUCCESS 0
+#define IS_CONNECTED_ERR_LOCK_MUTEX 1
+#define IS_CONNECTED_ERR_UNLOCK_MUTEX 2
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// structs
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct user_data {
+	char username[MAX_USERNAME_LEN + 1];
+	struct in_addr ip;
+	char port[6];
+};
+
+typedef struct user_data user;
 
 
 
@@ -86,4 +123,27 @@ int get_user_files_list(char* username, char*** p_user_files, uint32_t* p_quanti
 	Returns 1 if the user is registered and 0 if no
 */
 int is_registered(char* username);
+/*
+    Adds the user to the connected users vector.
+    Returns:
+        ADD_CONNECTED_USERS_SUCCESS             - success
+        ADD_CONNECTED_USERS_ALREADY_EXISTS      - user is already connected
+        ADD_CONNECTED_USER_FULL                 - limit of connected users reached
+        ADD_CONNECTED_USER_MUTEX_LOCK_ERROR     - could not lock mutex_connected_users
+        ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR   - could not unlock mutex_connected_users
+*/
+int add_connected_user(char* name, struct in_addr ip, char* port);
+
+int get_connected_users(user*** p_users);
+/*
+    p_error is a pointer to a place where result code will be put.
+    result codes:
+        IS_CONNECTED_SUCCESS            - success
+        IS_CONNECTED_ERR_LOCK_MUTEX     - could not lock mutex_connected_users
+        IS_CONNECTED_ERR_UNLOCK_MUTEX   - could not unlock mutex_connected_users
+    Returns:
+        1 - user with the username is connected
+        0 - user with the username is not connected
+*/
+int is_connected(char* username, int* p_err);
 

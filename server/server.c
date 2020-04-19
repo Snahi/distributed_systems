@@ -1,3 +1,4 @@
+#include "server.h"
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
@@ -6,205 +7,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <strings.h> 
 #include <pthread.h>
 #include "lines.h"
 #include <regex.h>
 #include <signal.h>
 #include <errno.h>
-#include "user_dao.h"
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// constants
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// port
-#define DEFAULT_PORT 7777
-#define MAX_PORT_NUMBER 49151
-#define MIN_PORT_NUMBER 1024
-// ip address
-#define MAX_IP_ADDR_LEN 15
-// main socket
-#define REQUESTS_QUEUE_SIZE 10
-#define ERR_SOCKET_DESCRIPTOR 100
-#define ERR_SOCKET_OPTION 110
-#define ERR_SOCKET_BIND 120
-#define ERR_SOCKET_LISTEN 130
-// request
-#define MAX_REQ_TYPE_LEN 20
-#define REQ_REGISTER "REGISTER"
-#define REQ_UNREGISTER "UNREGISTER"
-#define REQ_LIST_USERS "LIST_USERS"
-#define REQ_LIST_CONTENT "LIST_CONTENT"
-// register
-#define MAX_USERNAME_LEN 256
-#define REGISTER_SUCCESS 0
-#define REGISTER_NON_UNIQUE_USERNAME 1
-#define REGISTER_OTHER_ERROR 2
-// unregister
-#define UNREGISTER_SUCCESS 0
-#define UNREGISTER_NO_SUCH_USER 1
-#define UNREGISTER_OTHER_ERROR 2
-// publish
-#define MAX_FILENAME_LEN 256
-#define MAX_NUMBER_OF_FILES 100000
-// list users
-#define LIST_USERS_SUCCESS 0
-#define LIST_USERS_NO_SUCH_USER 1
-#define LIST_USERS_DISCONNECTED 2
-#define LIST_USERS_OTHER_ERROR 3
-// send users list
-#define SEND_USERS_LIST_SUCCESS 0
-#define SEND_USERS_LIST_ERR_NUM_OF_USERS 1
-#define SEND_USERS_LIST_ERR_USERNAME 2
-#define SEND_USERS_LIST_ERR_IP 3
-#define SEND_USERS_LIST_ERR_PORT 4
-// list content
-#define LIST_CONTENT_SUCCESS 0
-#define LIST_CONTENT_NOT_REGISTERED 1
-#define LIST_CONTENT_DISCONNECTED 2
-#define LIST_CONTENT_NO_SUCH_FILES_OWNER 3
-#define LIST_CONTENT_OTHER_ERROR 4
-// send content list
-#define SEND_CONTENT_LIST_SUCCESS 0
-#define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
-#define SEND_CONTENT_LIST_ERR_FILENAME 2
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// structs
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-struct user_data {
-	char username[MAX_USERNAME_LEN + 1];
-	char ip[MAX_IP_ADDR_LEN + 1];
-	char port[6];
-};
-
-typedef struct user_data user;
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// function declarations
-///////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-	Obtains the port number to be used for listening. The port is obtained from the command line
-	arguments.
-	Returns port number if success, -1 if no port specified or the port is invalid
-*/
-int obtain_port();
-/*
-	processes result from the obtain_port function and prints approporiate message.
-	Returns obtained_port or default port if errors occured.
-*/
-int process_obtain_port_result(int port);
-/*
-	starts listening for ctrl+c to finish the program.
-	Returns 1 on success and 0 on fail
-*/
-int start_listening_sigint();
-/*
-	Prints a cmd template for starting the server
-*/
-void print_usage();
-/*
-	Creates a socket to listen on the specified port and assigns the socket descriptor to p_socket.
-	Returns:
-	ERR_SOCKET_DESCRIPTOR	- could not create the socket
-	ERR_SOCKET_OPTION 		- could not set options for the socket
-	ERR_SOCKET_BIND 		- could not bind the socket
-	ERR_SOCKET_LISTEN 		- could not start listening
-*/
-int init_socket(int port, int* p_socket);
-/*
-	initializes mutex_csd and cond_csd.
-	Returns 0 on success and -1 on fail.
-*/
-int init_copy_client_socket_concurrency_mechanisms();
-/*
-	initializes attributes for request thread.
-	Returns 0 on success and -1 on fail
-*/
-int init_request_thread_attr(pthread_attr_t* attr);
-/*
-	Deals with the error produced in init_socket.
-*/
-void process_init_socket_error(int err, int sd);
-/*
-	Waits in main thread until client socket descriptor is copied to new thread
-*/
-int wait_till_socket_copying_is_done();
-/*
-	cleans up after main function.
-	Returns 0 on success and -1 on fail.
-*/
-int clean_up(int server_socket, pthread_attr_t* p_attr);
-/*
-	Once a request arrives to the server through the general socket (the socket bound to the
-	port specified in cmd) the server will create a new thread for processing the request and
-	this is the function which will be runnig in the newly created thread. The function will lock 
-	mutex_csd while copying the client socket to a local variable and when it is finish it will
-	signal on cond_csd.
-*/
-void* manage_request(void* p_socket);
-/*
-	Reads from the socket in order to identify request type, i.e. register, unregister, connect....
-	If the request could be identified then a request specific function is called. If the request
-	could not be identified an approporiate message will be send back to the socket. 
-*/
-void identify_and_process_request(int socket);
-
-void register_user(int socket);
-
-/*
-	Reads username from the socket and puts it's value into the address space pointed by username.
-	Returns number of characters read
-*/
-int read_username(int socket, char* username);
-
-/*
-	checks if username is valid.
-	Returns 1 if yes 0 if no
-*/
-int is_username_valid(char* username);
-
-void unregister(int socket);
-/*
-	checks if the user with the username is connected to the server.
-	Returns 1 if the user is connected and 0 if no
-*/
-int is_connected(char* username);
-
-void list_users(int socket);
-/*
-	dynamically allocates an array of users which are connected to the system, so
-	it has to be deleted afterwards.
-	Returns number of connected users
-*/
-uint32_t get_connected_users_list(user** p_users_list);
-
-/*
-	Sends list of users through the socket. First username is send, then ip and finally port.
-	Returns:
-	SEND_USERS_LIST_SUCCESS 			- success
-	SEND_USERS_LIST_ERR_NUM_OF_USERS 	- could not send number of users
-	SEND_USERS_LIST_ERR_USERNAME 		- could not send username
-	SEND_USERS_LIST_ERR_IP 				- could not send ip
-	SEND_USERS_LIST_ERR_PORT 			- could not send port
-*/
-int send_users_list(int socket, user* users_list, uint32_t num_of_users);
-
-void list_content(int socket);
-/*
-	Sends list of content (names of files) through the socket.
-	Returns:
-	SEND_CONTENT_LIST_SUCCESS 			- success
-	SEND_CONTENT_LIST_ERR_NUM_OF_FILES 	- could not send number of files
-	SEND_CONTENT_LIST_ERR_FILENAME 		- could not send filename
-*/
-int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -275,19 +84,23 @@ int main(int argc, char* argv[])
 	struct sockaddr_in client_addr;
 	int client_socket;
     socklen_t clinet_addr_size = sizeof(struct sockaddr_in);
-
+	
 	// start detecting ctrl + c
 	if (!start_listening_sigint())
 		return -1;
 
+	struct req_thread_args args;
+	
     while (is_running)
     {
         // accept connection from a client
         client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &clinet_addr_size);
+		args.socket = client_socket;
+		args.addr = client_addr.sin_addr;
 
 		if (client_socket >= 0)
 		{
-			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &client_socket) != 0)
+			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &args) != 0)
 				perror("ERROR main - could not create request thread");
 
 			if (wait_till_socket_copying_is_done() != 0)
@@ -553,9 +366,9 @@ int clean_up(int server_socket, pthread_attr_t* p_attr)
 // manage_request
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void* manage_request(void* p_socket)
+void* manage_request(void* p_args)
 {
-	int socket = -1;
+	struct req_thread_args args;
 
 	// lock the main thread until the socket is copied
 	if (pthread_mutex_lock(&mutex_csd) != 0)
@@ -564,7 +377,7 @@ void* manage_request(void* p_socket)
 		return NULL;
 	}
 
-	memcpy(&socket, p_socket, sizeof(int));
+	memcpy(&args, p_args, sizeof(args));
 	is_copied = 1;
 	
 	// notify that socket was copied
@@ -575,20 +388,19 @@ void* manage_request(void* p_socket)
 		printf("ERROR manage_request - could not unlock mutex\n");
 
 	// process the request
-	if (socket > 0)
-		identify_and_process_request(socket);
-
-	// close the client socket
-	if (close(socket) != 0)
-		perror("ERROR manage request - could not close client socket");
+	identify_and_process_request(&args);
 
 	pthread_exit(NULL);
 }
 
 
 
-void identify_and_process_request(int socket)
+void identify_and_process_request(struct req_thread_args* p_args)
 {
+	int socket = p_args->socket;
+	if (socket < 0)
+		return;
+	
 	char req_type[MAX_REQ_TYPE_LEN + 1];
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
@@ -596,6 +408,8 @@ void identify_and_process_request(int socket)
 	// process request type
 	if (strcmp(req_type, REQ_REGISTER) == 0)
 		register_user(socket);
+	else if (strcmp(req_type, REQ_CONNECT) == 0)
+		connect_user(socket, p_args->addr);
 	else if (strcmp(req_type, REQ_UNREGISTER) == 0)
 		unregister(socket);
 	else if (strcmp(req_type, REQ_LIST_USERS) == 0)
@@ -604,6 +418,10 @@ void identify_and_process_request(int socket)
 		list_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
+
+	// close the client socket
+	if (close(socket) != 0)
+		perror("ERROR manage request - could not close client socket");
 }
 
 
@@ -640,12 +458,8 @@ void register_user(int socket)
 		printf("ERROR register_user - no username\n");
 		result = REGISTER_OTHER_ERROR;
 	}
-
-	char response[2];
-	response[0] = result;
-	response[1] = '\0';
 	
-	if (send_msg(socket, response, 2) != 0)
+	if (send_msg(socket, (char*) &result, 1) != 0)
 		printf("ERROR register_user - could not send message\n");
 }
 
@@ -698,26 +512,47 @@ void unregister(int socket)
 		res = UNREGISTER_OTHER_ERROR;
 	}
 	
-	char response[2];
-	response[0] = res;
-	response[1] = '\0';
-	
-	if (send_msg(socket, response, 2) != 0)
+	if (send_msg(socket, (char*) &res, 1) != 0)
 		printf("ERROR unregister - could not send response\n");
 }
 
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// is_connected
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// connect
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-int is_connected(char* username)
+void connect_user(int socket, struct in_addr addr)
 {
-	// TODO IMPLEMENT
-	printf("NOT YET IMPLEMENTED is_connected\n");
+	uint8_t res = CONNECT_USER_SUCCESS;
 
-	return 1;
+	char username[MAX_USERNAME_LEN + 1];
+	if (read_username(socket, username) > 0) // username specified
+	{
+		if (is_registered(username))
+		{
+			char port[MAX_PORT_STR_SIZE + 1];
+			if (read_port(socket, port) > 0)
+			{
+				int add_res = add_connected_user(username, addr, port);
+				if (add_res == ADD_CONNECTED_USERS_SUCCESS)
+					res = CONNECT_USER_SUCCESS;
+				else if (add_res == ADD_CONNECTED_USERS_ALREADY_EXISTS)
+					res = CONNECT_USER_ERR_ALREADY_CONNECTED;
+				else
+					res = CONNECT_USER_ERR_OTHER;
+			}
+			else // port not specified
+				res = CONNECT_USER_ERR_OTHER;
+		}
+		else
+			res = CONENCT_USER_ERR_NOT_REGISTERED;
+	}
+	else // username not specified
+		res = CONNECT_USER_ERR_OTHER;
+	
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR connect - could not send response\n");
 }
 
 
@@ -729,16 +564,25 @@ int is_connected(char* username)
 void list_users(int socket)
 {
 	uint8_t res = LIST_USERS_SUCCESS;
-	user* users_list = NULL;
-	uint32_t num_of_users = 0;
+	user** users_list = NULL;
 
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if user specified
 	{
 		if (is_registered(username))
 		{
-			if (is_connected(username))
-				num_of_users = get_connected_users_list(&users_list);
+			int is_connected_res;
+			if (is_connected(username, &is_connected_res))
+			{
+				if (is_connected_res == IS_CONNECTED_SUCCESS)
+				{
+					if (get_connected_users(&users_list) != GET_CONNECTED_USERS_LIST_SUCCESS)
+						res = LIST_USERS_OTHER_ERROR;
+				}
+				else // mutex errors
+					res = LIST_USERS_OTHER_ERROR;
+				
+			}
 			else
 				res = LIST_USERS_DISCONNECTED;
 		}
@@ -752,15 +596,12 @@ void list_users(int socket)
 	}
 
 	// send result
-	char response_res_code[2];
-	response_res_code[0] = res;
-	response_res_code[1] = '\0';
 
-	if (send_msg(socket, response_res_code, 2) == 0)
+	if (send_msg(socket, (char*) &res, 1) == 0)
 	{
 		if (res == LIST_USERS_SUCCESS)
 		{
-			int send_res = send_users_list(socket, users_list, num_of_users);
+			int send_res = send_users_list(socket, users_list);
 
 			if (send_res != SEND_USERS_LIST_SUCCESS)
 				printf("ERROR list_users - could not send users. Code: %d\n", send_res);
@@ -770,53 +611,33 @@ void list_users(int socket)
 		printf("ERROR list_users - could not send response\n");
 
 	if (users_list != NULL)
-		free(users_list);
+		vector_free(users_list);
 }
 
 
 
-uint32_t get_connected_users_list(user** p_users_list)
-{
-	// TODO do real implementation
-	printf("NOT YET IMPLEMENTED get_connected_users_list\n");
-	
-	user* users = malloc(3 * sizeof(user));
-
-	strcpy(users[0].username, "user1");
-	strcpy(users[0].ip, "87.43.21.1");
-	strcpy(users[0].port, "59000");
-
-	strcpy(users[1].username, "user2");
-	strcpy(users[1].ip, "87.43.21.2");
-	strcpy(users[1].port, "59001");
-
-	strcpy(users[2].username, "user3");
-	strcpy(users[2].ip, "87.43.21.3");
-	strcpy(users[2].port, "59003");
-
-	*p_users_list = users;
-
-	return 3;
-}
-
-
-
-int send_users_list(int socket, user* users_list, uint32_t num_of_users)
+int send_users_list(int socket, user** users_list)
 {
 	// send number of users
-	char str_num_of_users[8]; // max number of users is 4 000 000
+	uint32_t num_of_users = (uint32_t) vector_size(users_list);
+	char str_num_of_users[MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN + 1]; // max number of users is 4 000 000
 	sprintf(str_num_of_users, "%d", num_of_users);
 	if (send_msg(socket, str_num_of_users, strlen(str_num_of_users) + 1) != 0)
 		return SEND_USERS_LIST_ERR_NUM_OF_USERS;
 
+	char addr[14];
+
 	// send users' data
 	for (uint32_t i = 0; i < num_of_users; i++)
 	{
-		if (send_msg(socket, users_list[i].username, strlen(users_list[i].username) + 1) != 0)
+		if (send_msg(socket, users_list[i]->username, strlen(users_list[i]->username) + 1) != 0)
 			return SEND_USERS_LIST_ERR_USERNAME;
-		if (send_msg(socket, users_list[i].ip, strlen(users_list[i].ip) + 1) != 0)
+		
+		strcpy(addr, inet_ntoa(users_list[i]->ip));
+		if (send_msg(socket, addr, strlen(addr) + 1) != 0)
 			return SEND_USERS_LIST_ERR_IP;
-		if (send_msg(socket, users_list[i].port, strlen(users_list[i].port) + 1) != 0)
+
+		if (send_msg(socket, users_list[i]->port, strlen(users_list[i]->port) + 1) != 0)
 			return SEND_USERS_LIST_ERR_PORT;
 	}
 
@@ -840,21 +661,27 @@ void list_content(int socket)
 	{
 		if (is_registered(username))
 		{
-			if (is_connected(username))
+			int is_connected_res;
+			if (is_connected(username, &is_connected_res))
 			{
-				char content_owner[MAX_USERNAME_LEN + 1];
-				if (read_username(socket, content_owner) > 0) // content owner specified
+				if (is_connected_res == IS_CONNECTED_SUCCESS)
 				{
-					int get_f_res = get_user_files_list(content_owner, &content_list, 
-						&num_of_files);
+					char content_owner[MAX_USERNAME_LEN + 1];
+					if (read_username(socket, content_owner) > 0) // content owner specified
+					{
+						int get_f_res = get_user_files_list(content_owner, &content_list, 
+							&num_of_files);
 
-					if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
+						if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
+							res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+						else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
+							res = LIST_CONTENT_OTHER_ERROR;
+					}
+					else // no content owner specified
 						res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
-					else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
-						res = LIST_CONTENT_OTHER_ERROR;
 				}
-				else // no content owner specified
-					res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+				else // mutex problem in is_connected
+					res = LIST_CONTENT_OTHER_ERROR;
 			}
 			else
 				res = LIST_CONTENT_DISCONNECTED;
@@ -869,11 +696,8 @@ void list_content(int socket)
 	}
 
 	// send result
-	char response_res_code[2];
-	response_res_code[0] = res;
-	response_res_code[1] = '\0';
 
-	if (send_msg(socket, response_res_code, 2) == 0)
+	if (send_msg(socket, (char*) &res, 1) == 0)
 	{
 		if (res == LIST_CONTENT_SUCCESS)
 		{
@@ -926,6 +750,20 @@ int read_username(int socket, char* username)
 	int total_read = read_line(socket, username, MAX_USERNAME_LEN);
 	username[MAX_USERNAME_LEN] = '\0'; // just in case if the username was not finished properly
 	
+	return total_read;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_port
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_port(int socket, char* port)
+{
+	int total_read = read_line(socket, port, MAX_PORT_STR_SIZE);
+	port[MAX_PORT_STR_SIZE] = '\0';
+
 	return total_read;
 }
 	

@@ -21,6 +21,8 @@
 #define DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER 1
 #define DELETE_ALL_USER_FILES_ERR_REMOVE 2
 #define DELETE_ALL_USER_FILES_ERR_CLOSE_DIR 3
+// connect
+#define MAX_NUMBER_OF_CONNECTED_USERS 4000000
 
 
 
@@ -28,6 +30,8 @@
 // global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 pthread_mutex_t mutex_storage;
+pthread_mutex_t mutex_connected_users;
+user** connected_users;
 
 
 
@@ -43,11 +47,20 @@ int init_user_dao()
         return INIT_USER_DAO_ERR_FOLDER_CREATION;                   // already existed
     }
 
-    // initialize mutex
+    // initialize storage mutex
     if (pthread_mutex_init(&mutex_storage, NULL) != 0)
     {
-        return INIT_USER_DAO_ERR_MUTEX_INIT;
+        return INIT_USER_DAO_ERR_STORAGE_MUTEX_INIT;
     }
+
+    // initialize connected users mutex
+    if (pthread_mutex_init(&mutex_connected_users, NULL) != 0)
+    {
+        return INIT_USER_DAO_ERR_CONNECTED_USERS_MUTEX_INIT;
+    }
+
+    // initialize connected users list
+    connected_users = vector_create();
 
     return INIT_USER_DAO_SUCCESS;
 }
@@ -60,10 +73,29 @@ int init_user_dao()
 
 int destroy_user_dao()
 {
-    if (pthread_mutex_destroy(&mutex_storage) != 0)
+    if (pthread_mutex_lock(&mutex_connected_users) != 0)
+        return DESTROY_USER_DAO_ERR_LOCK_CONNECTED_USERS_MUTEX;
+    else
     {
-        return DESTROY_USER_DAO_ERR_MUTEX;
+         // free connected users memory
+        int numOfConnectedUsers = vector_size(connected_users);
+        for (int i = 0; i < numOfConnectedUsers; i++)
+        {
+            free(connected_users[i]);
+        }
+
+        vector_free(connected_users);
+        connected_users = NULL;
+
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+            return DESTROY_USER_DAO_ERR_UNLOCK_CONNECTED_USERS_MUTEX;
     }
+
+    if (pthread_mutex_destroy(&mutex_storage) != 0)
+        return DESTROY_USER_DAO_ERR_STORAGE_MUTEX;
+
+    if (pthread_mutex_destroy(&mutex_connected_users) != 0)
+        return DESTROY_USER_DAO_ERR_CONNECTED_USERS_MUTEX;
 
     return DESTROY_USER_DAO_SUCCESS;
 }
@@ -286,3 +318,134 @@ int is_registered(char* username)
 
     return stat(dir_path, &st) == 0 ? 1 : 0;
 }
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// connect user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int is_in_connected_users(char* name)
+{
+    int numOfConnectedUsers = vector_size(connected_users);
+    for (int i = 0; i < numOfConnectedUsers; i++)
+    {
+        if (strcmp(connected_users[i]->username, name) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+
+
+int add_connected_user(char* name, struct in_addr ip, char* port)
+{
+    int res = ADD_CONNECTED_USERS_SUCCESS;
+
+    if (pthread_mutex_lock(&mutex_connected_users) != 0)
+    {
+        printf("ERROR add_connected_user - could not lock mutex\n");
+        res = ADD_CONNECTED_USER_MUTEX_LOCK_ERROR;
+    }
+    else
+    {
+        if (is_in_connected_users(name))
+            res = ADD_CONNECTED_USERS_ALREADY_EXISTS;
+        else
+        {
+            if (vector_size(connected_users) == MAX_NUMBER_OF_CONNECTED_USERS)
+                res = ADD_CONNECTED_USER_FULL;
+            else
+            {
+                user* p_user = malloc(sizeof(user));
+                strcpy(p_user->username, name);
+                memcpy(&p_user->ip, &ip, sizeof(ip));
+                strcpy(p_user->port, port);
+
+                vector_add(&connected_users, p_user);
+
+                res = ADD_CONNECTED_USERS_SUCCESS;
+            }
+        }
+
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+        {
+            printf("ERROR add_connected_user - could not unlock mutex\n");
+            res = ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR;
+        }
+    }
+
+    return res;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// is connected
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int is_connected(char* username, int* p_err)
+{
+    int res = IS_CONNECTED_SUCCESS;
+
+    if (pthread_mutex_lock(&mutex_connected_users) != 0)
+        res = IS_CONNECTED_ERR_LOCK_MUTEX;
+    {
+        int numOfConnectedUsers = vector_size(connected_users);
+        for (int i = 0; i < numOfConnectedUsers; i++)
+        {
+            if (strcmp(connected_users[i]->username, username) == 0)
+            {
+                if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+                    res = IS_CONNECTED_ERR_UNLOCK_MUTEX;
+
+                *p_err = res;
+                return 1;
+            }
+        }
+    }
+
+    *p_err = res;
+    return 0;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// get connected users list
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int get_connected_users(user*** p_users)
+{
+    int res = GET_CONNECTED_USERS_LIST_SUCCESS;
+
+    if (pthread_mutex_lock(&mutex_connected_users) != 0)
+    {
+        printf("ERROR get_connected_users - could not lock mutex\n");
+        res = GET_CONNECTED_USERS_LIST_ERR_LOCK_MUTEX;
+    }
+    else
+    {
+        *p_users = vector_create();
+        int num_of_connected_users = vector_size(connected_users);
+        for (int i = 0; i < num_of_connected_users; i++)
+        {
+            vector_add(p_users, connected_users[i]);
+        }
+
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+        {
+            printf("ERROR get_connected_users = could not unlock mutex\n");
+            res = GET_CONNECTED_USERS_LIST_ERR_UNLOCK_MUTEX;
+        }
+    }
+    
+    return res;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// disconnect user
+///////////////////////////////////////////////////////////////////////////////////////////////////
