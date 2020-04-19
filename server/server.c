@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <strings.h> 
 #include <pthread.h>
 #include "lines.h"
@@ -563,16 +564,25 @@ void connect_user(int socket, struct in_addr addr)
 void list_users(int socket)
 {
 	uint8_t res = LIST_USERS_SUCCESS;
-	user* users_list = NULL;
-	uint32_t num_of_users = 0;
+	user** users_list = NULL;
 
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if user specified
 	{
 		if (is_registered(username))
 		{
-			if (is_in_connected_users(username))
-				num_of_users = get_connected_users_list(&users_list); // TODO change
+			int is_connected_res;
+			if (is_connected(username, &is_connected_res))
+			{
+				if (is_connected_res == IS_CONNECTED_SUCCESS)
+				{
+					if (get_connected_users(&users_list) != GET_CONNECTED_USERS_LIST_SUCCESS)
+						res = LIST_USERS_OTHER_ERROR;
+				}
+				else // mutex errors
+					res = LIST_USERS_OTHER_ERROR;
+				
+			}
 			else
 				res = LIST_USERS_DISCONNECTED;
 		}
@@ -591,7 +601,7 @@ void list_users(int socket)
 	{
 		if (res == LIST_USERS_SUCCESS)
 		{
-			int send_res = send_users_list(socket, users_list, num_of_users);
+			int send_res = send_users_list(socket, users_list);
 
 			if (send_res != SEND_USERS_LIST_SUCCESS)
 				printf("ERROR list_users - could not send users. Code: %d\n", send_res);
@@ -601,27 +611,33 @@ void list_users(int socket)
 		printf("ERROR list_users - could not send response\n");
 
 	if (users_list != NULL)
-		free(users_list);
+		vector_free(users_list);
 }
 
 
 
-int send_users_list(int socket, user* users_list, uint32_t num_of_users)
+int send_users_list(int socket, user** users_list)
 {
 	// send number of users
+	uint32_t num_of_users = (uint32_t) vector_size(users_list);
 	char str_num_of_users[MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN + 1]; // max number of users is 4 000 000
 	sprintf(str_num_of_users, "%d", num_of_users);
 	if (send_msg(socket, str_num_of_users, strlen(str_num_of_users) + 1) != 0)
 		return SEND_USERS_LIST_ERR_NUM_OF_USERS;
 
+	char addr[14];
+
 	// send users' data
 	for (uint32_t i = 0; i < num_of_users; i++)
 	{
-		if (send_msg(socket, users_list[i].username, strlen(users_list[i].username) + 1) != 0)
+		if (send_msg(socket, users_list[i]->username, strlen(users_list[i]->username) + 1) != 0)
 			return SEND_USERS_LIST_ERR_USERNAME;
-		if (send_msg(socket, users_list[i].ip, strlen(users_list[i].ip) + 1) != 0)
+		
+		strcpy(addr, inet_ntoa(users_list[i]->ip));
+		if (send_msg(socket, addr, strlen(addr) + 1) != 0)
 			return SEND_USERS_LIST_ERR_IP;
-		if (send_msg(socket, users_list[i].port, strlen(users_list[i].port) + 1) != 0)
+
+		if (send_msg(socket, users_list[i]->port, strlen(users_list[i]->port) + 1) != 0)
 			return SEND_USERS_LIST_ERR_PORT;
 	}
 
@@ -645,21 +661,27 @@ void list_content(int socket)
 	{
 		if (is_registered(username))
 		{
-			if (is_in_connected_users(username))
+			int is_connected_res;
+			if (is_connected(username, &is_connected_res))
 			{
-				char content_owner[MAX_USERNAME_LEN + 1];
-				if (read_username(socket, content_owner) > 0) // content owner specified
+				if (is_connected_res == IS_CONNECTED_SUCCESS)
 				{
-					int get_f_res = get_user_files_list(content_owner, &content_list, 
-						&num_of_files);
+					char content_owner[MAX_USERNAME_LEN + 1];
+					if (read_username(socket, content_owner) > 0) // content owner specified
+					{
+						int get_f_res = get_user_files_list(content_owner, &content_list, 
+							&num_of_files);
 
-					if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
+						if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
+							res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+						else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
+							res = LIST_CONTENT_OTHER_ERROR;
+					}
+					else // no content owner specified
 						res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
-					else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
-						res = LIST_CONTENT_OTHER_ERROR;
 				}
-				else // no content owner specified
-					res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+				else // mutex problem in is_connected
+					res = LIST_CONTENT_OTHER_ERROR;
 			}
 			else
 				res = LIST_CONTENT_DISCONNECTED;

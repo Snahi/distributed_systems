@@ -178,7 +178,7 @@ void list_users(int socket);
 	SEND_USERS_LIST_ERR_IP 				- could not send ip
 	SEND_USERS_LIST_ERR_PORT 			- could not send port
 */
-int send_users_list(int socket, user* users_list, uint32_t num_of_users);
+int send_users_list(int socket, user** users_list);
 
 void list_content(int socket);
 /*
