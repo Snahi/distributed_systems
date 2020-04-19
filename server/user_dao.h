@@ -118,3 +118,5 @@ int is_in_connected_users(char* name);
 
 int add_connected_user(char* name, struct in_addr ip, char* port);
 
+int get_connected_users(user*** p_users);
+

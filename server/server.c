@@ -572,7 +572,7 @@ void list_users(int socket)
 		if (is_registered(username))
 		{
 			if (is_in_connected_users(username))
-				num_of_users = get_connected_users_list(&users_list);
+				num_of_users = get_connected_users_list(&users_list); // TODO change
 			else
 				res = LIST_USERS_DISCONNECTED;
 		}
@@ -602,32 +602,6 @@ void list_users(int socket)
 
 	if (users_list != NULL)
 		free(users_list);
-}
-
-
-
-uint32_t get_connected_users_list(user** p_users_list)
-{
-	// TODO do real implementation
-	printf("NOT YET IMPLEMENTED get_connected_users_list\n");
-	
-	user* users = malloc(3 * sizeof(user));
-
-	strcpy(users[0].username, "user1");
-	strcpy(users[0].ip, "87.43.21.1");
-	strcpy(users[0].port, "59000");
-
-	strcpy(users[1].username, "user2");
-	strcpy(users[1].ip, "87.43.21.2");
-	strcpy(users[1].port, "59001");
-
-	strcpy(users[2].username, "user3");
-	strcpy(users[2].ip, "87.43.21.3");
-	strcpy(users[2].port, "59003");
-
-	*p_users_list = users;
-
-	return 3;
 }
 
 

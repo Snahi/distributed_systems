@@ -330,7 +330,7 @@ int add_connected_user(char* name, struct in_addr ip, char* port)
     {
         if (vector_size(connected_users) == MAX_NUMBER_OF_CONNECTED_USERS)
             return ADD_CONNECTED_USER_FULL;
-            
+
         user* p_user = malloc(sizeof(user));
         strcpy(p_user->username, name);
         memcpy(p_user->ip, &ip, sizeof(ip));
@@ -340,6 +340,19 @@ int add_connected_user(char* name, struct in_addr ip, char* port)
         
         return ADD_CONNECTED_USERS_SUCCESS;
     }
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// get connected users list
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int get_connected_users(user*** p_users)
+{
+    *p_users = connected_users;
+    
+    return 0;
 }
 
 
