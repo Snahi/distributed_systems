@@ -174,11 +174,7 @@ int read_username(int socket, char* username);
 int is_username_valid(char* username);
 
 void unregister(int socket);
-/*
-	checks if the user with the username is connected to the server.
-	Returns 1 if the user is connected and 0 if no
-*/
-int is_connected(char* username);
+
 void connect_user(int socket, struct in_addr);
 
 int read_port(int socket, char* port);
@@ -761,19 +757,6 @@ void connect_user(int socket, struct in_addr addr)
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// is_connected
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int is_connected(char* username)
-{
-	// TODO IMPLEMENT
-	printf("NOT YET IMPLEMENTED is_connected\n");
-
-	return 1;
-}
-
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // list_users
@@ -790,7 +773,7 @@ void list_users(int socket)
 	{
 		if (is_registered(username))
 		{
-			if (is_connected(username))
+			if (is_in_connected_users(username))
 				num_of_users = get_connected_users_list(&users_list);
 			else
 				res = LIST_USERS_DISCONNECTED;
@@ -893,7 +876,7 @@ void list_content(int socket)
 	{
 		if (is_registered(username))
 		{
-			if (is_connected(username))
+			if (is_in_connected_users(username))
 			{
 				char content_owner[MAX_USERNAME_LEN + 1];
 				if (read_username(socket, content_owner) > 0) // content owner specified
