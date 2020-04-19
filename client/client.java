@@ -43,6 +43,7 @@ class client {
 	/********************* METHODS ********************/
 	
 
+	
 	public static String readbytes(DataInputStream a) throws IOException {
         String bytes = "";
         byte lastcharacter = 'l';
@@ -53,8 +54,24 @@ class client {
             lastcharacter = current;
         }
         return bytes;
-    }
+	}
+	
 
+
+/*
+	public static String readbytes(BufferedReader a) throws IOException {
+        String bytes = "";
+        byte lastcharacter = 'l';
+        byte current = 'r';
+        while (lastcharacter != '\0') {
+			a.readLine()
+            current = a.readByte();
+            bytes = bytes + (char) current;
+            lastcharacter = current;
+        }
+        return bytes;
+    }
+*/
 
 	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
     public void run() {
@@ -486,13 +503,7 @@ class client {
 	{
 		int rc=0;
 		try {
-			
-			/*
-			if (file_name.isBlank()){
-			}
-			if (file_name.length()>256){
-			}
-			*/
+
 
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
@@ -501,6 +512,8 @@ class client {
 			//Send to the server the message PUBLISH, the username, the file name and its description
 			outToServer.writeBytes("LIST_USERS\0");
 			outToServer.flush();
+			//JUST FOR NOW WE SET MANUALLY THE USERNAME
+			username="alex";
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
 
@@ -512,6 +525,14 @@ class client {
 			switch (response) {
 				case 0: //SUCCESS
 				rc=0;
+				//TEST
+				//BufferedReader f = new BufferedReader(new InputStreamReader(client_Socket.getInputStream()));
+				//String susers = f.readLine();
+				
+				//String susers = inFromServer.readLine();
+				
+				//String susers = readbytes(f);
+
 				String susers = readbytes(inFromServer);
 				int nusers = Integer.parseInt(susers);
 				System.out.println("c> LIST_USERS OK");
@@ -597,6 +618,7 @@ class client {
 			switch (response) {
 				case 0: //SUCCESS
 				rc=0;
+				//String sfiles = inFromServer.readLine();
 				String sfiles = readbytes(inFromServer);
 				int nfiles = Integer.parseInt(sfiles);
 				System.out.println("c> LIST_CONTENT OK");
