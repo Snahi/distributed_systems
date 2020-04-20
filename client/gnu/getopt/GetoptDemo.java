@@ -1,4 +1,5 @@
-package gnu.getopt;
+import gnu.getopt.LongOpt;
+import gnu.getopt.Getopt;
 
 /*
  * This sample code was written by Aaron M. Renn and is a demonstration

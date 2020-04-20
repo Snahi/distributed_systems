@@ -141,6 +141,10 @@ class client {
 			client_Socket.close();
 
 		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> REGISTER FAIL");
+		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
 			e.printStackTrace();
@@ -171,7 +175,11 @@ class client {
 
             //Switch for the different returning messages from the server
             switch (response){
-                case 0:
+				case 0:
+				if (user.equals(username))
+				{
+					username = "";
+				}
 				System.out.println("c> UNREGISTER OK");
 				rc=0;
 				break;
@@ -263,7 +271,11 @@ class client {
                 //We close the socket
                 client_Socket.close();
 
-            }
+			}
+			catch (ConnectException e)
+			{
+				System.out.println("c> CONNECT FAIL");
+			}
             catch (Exception e) {
                 System.out.println("Exception: " + e);
                 e.printStackTrace();
@@ -514,7 +526,7 @@ class client {
 			outToServer.writeBytes("LIST_USERS\0");
 			outToServer.flush();
 			//JUST FOR NOW WE SET MANUALLY THE USERNAME
-			username="alex";
+			// username="alex";
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
 
@@ -567,6 +579,10 @@ class client {
 			//After checkhing the response, we close the socket
 			client_Socket.close();
 
+		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> LIST_USERS FAIL");
 		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
@@ -658,6 +674,10 @@ class client {
 			//After checkhing the response, we close the socket
 			client_Socket.close();
 
+		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> LIST_CONTENT FAIL");
 		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
