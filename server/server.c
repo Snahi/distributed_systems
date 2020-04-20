@@ -532,13 +532,30 @@ void unregister(int socket)
 	if (read_username(socket, username) > 0)	// username specified
 	{
 		printf("%s\n", username);
-		int delete_res = delete_user(username);
 
-		switch (delete_res)
+		int is_connected_err = -1;
+		if (is_connected(username, &is_connected_err))
 		{
-			case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
-			case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
-			default							: res = UNREGISTER_OTHER_ERROR; 
+			if (is_connected_err != IS_CONNECTED_SUCCESS)
+				res = UNREGISTER_OTHER_ERROR;
+			else
+			{
+				if (remove_connected_user(username) != REMOVE_CONNECTED_USERS_SUCCESS)
+					res = UNREGISTER_OTHER_ERROR;
+			}
+			
+		}
+
+		if (res == UNREGISTER_SUCCESS)
+		{
+			int delete_res = delete_user(username);
+
+			switch (delete_res)
+			{
+				case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
+				case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
+				default							: res = UNREGISTER_OTHER_ERROR; 
+			}
 		}
 	}
 	else
@@ -604,12 +621,15 @@ void disconnect_user(int socket){
 	/*read from socket*/
 	if(read_username(socket,username)>0)
 	{
+		printf("%s\n", username);
 		if(is_registered(username))
 		{
-			if(is_connected("username",&is_connected_res)==IS_CONNECTED_SUCCESS)
+			if(is_connected(username,&is_connected_res))
 			{
-				remove_connected_user(username);
-				res=DISCONNECT_USER_SUCCESS;
+				if (remove_connected_user(username) == REMOVE_CONNECTED_USERS_SUCCESS)
+					res=DISCONNECT_USER_SUCCESS;
+				else
+					res = DISCONNECT_USER_ERR_OTHER;
 			}
 			else{
 				res=DISCONNECT_USER_ERR_NOT_CONNECTED;

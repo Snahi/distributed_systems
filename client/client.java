@@ -182,6 +182,7 @@ class client {
 					operating_thread = false;
 				}
 				System.out.println("c> UNREGISTER OK");
+				connect = false;
 				rc=0;
 				break;
 				

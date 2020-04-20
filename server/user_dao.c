@@ -476,18 +476,18 @@ int remove_connected_user(char*name){
             if (strcmp(connected_users[i]->username, name) == 0)
             {
                 free(connected_users[i]);
-                vector_remove(&connected_users,i);
+                vector_remove(connected_users,i);
                     
-                /*unlock mutex*/
-                if(pthread_mutex_unlock(&mutex_connected_users)!= 0)
-                {
-                    printf("ERROR remove_connected_users= could not unlock mutex\n");
-                    res=REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
-                }
                 break; 
             }
         }
-        
+
+        /*unlock mutex*/
+        if(pthread_mutex_unlock(&mutex_connected_users)!= 0)
+        {
+            printf("ERROR remove_connected_users= could not unlock mutex\n");
+            res=REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
+        }
     }   
           
     return res;
