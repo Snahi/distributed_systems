@@ -179,6 +179,7 @@ class client {
 				if (user.equals(username))
 				{
 					username = "";
+					operating_thread = false;
 				}
 				System.out.println("c> UNREGISTER OK");
 				rc=0;
