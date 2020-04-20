@@ -50,7 +50,8 @@ class client {
         byte current = 'r';
         while (lastcharacter != '\0') {
             current = a.readByte();
-            bytes = bytes + (char) current;
+			if (current != '\0')
+				bytes = bytes + (char) current;
             lastcharacter = current;
         }
         return bytes;
