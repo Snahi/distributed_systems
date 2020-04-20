@@ -57,7 +57,8 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	printf("init server %s:%d\n", addr, port);
+	printf("s> init server %s:%d\n", addr, port);
+	printf("s>\n");
 
 	// initialize the main socket
 	int server_socket = -1;
@@ -433,7 +434,7 @@ void identify_and_process_request(struct req_thread_args* p_args)
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
 
-	printf("%s FROM ", req_type); // print operation
+	printf("s> %s FROM ", req_type); // print operation
 
 	// process request type
 	if (strcmp(req_type, REQ_REGISTER) == 0)
