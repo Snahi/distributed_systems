@@ -269,7 +269,7 @@ int init_request_thread_attr(pthread_attr_t* attr)
 
 
 
-void set_exit_flat(int val)
+void set_exit_flag(int val)
 {
 	is_running = 0;
 }
@@ -281,7 +281,7 @@ int start_listening_sigint()
 	struct sigaction act;
 	memset(&act, '\0', sizeof(act));
 
-	act.sa_handler = &set_exit_flat;
+	act.sa_handler = &set_exit_flag;
 
 	if (sigaction(SIGINT, &act, NULL) != 0)
 	{
@@ -307,7 +307,7 @@ int wait_till_socket_copying_is_done()
 		if (pthread_cond_wait(&cond_csd, &mutex_csd) != 0)
 		{
 			printf("ERROR wait_till_socket_copying_is_done - during condition wait\n");
-			return -1;	// if fails in this program, it's a serious error, stop the server
+			return -1;
 		}
 	}
 
@@ -405,6 +405,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
 
+	printf("%s FROM ", req_type); // print operation
+
 	// process request type
 	if (strcmp(req_type, REQ_REGISTER) == 0)
 		register_user(socket);
@@ -437,6 +439,7 @@ void register_user(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0)	// username specified
 	{
+		printf("%s\n", username);
 		if (is_username_valid(username))
 		{
 			int create_user_res = create_user(username);
@@ -497,6 +500,7 @@ void unregister(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0)	// username specified
 	{
+		printf("%s\n", username);
 		int delete_res = delete_user(username);
 
 		switch (delete_res)
@@ -529,6 +533,7 @@ void connect_user(int socket, struct in_addr addr)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // username specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			char port[MAX_PORT_STR_SIZE + 1];
@@ -569,6 +574,7 @@ void list_users(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if user specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			int is_connected_res;
@@ -664,6 +670,7 @@ void list_content(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if requesting user specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			int is_connected_res;
