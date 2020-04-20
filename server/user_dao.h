@@ -54,6 +54,10 @@
 #define IS_CONNECTED_SUCCESS 0
 #define IS_CONNECTED_ERR_LOCK_MUTEX 1
 #define IS_CONNECTED_ERR_UNLOCK_MUTEX 2
+//remove connected user
+#define REMOVE_CONNECTED_USERS_SUCCESS 0
+#define REMOVE_CONNECTED_USERS_ERR_LOCK_MUTEX 1
+#define REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX 2
 
 
 
@@ -147,4 +151,4 @@ int get_connected_users(user*** p_users);
 */
 int is_connected(char* username, int* p_err);
 
-void remove_connected_user(char*name);
+int remove_connected_user(char*name);

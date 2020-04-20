@@ -410,6 +410,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 		register_user(socket);
 	else if (strcmp(req_type, REQ_CONNECT) == 0)
 		connect_user(socket, p_args->addr);
+	else if (strcmp(req_type, REQ_DISCONNECT)==0)
+		disconnect_user(socket);
 	else if (strcmp(req_type, REQ_UNREGISTER) == 0)
 		unregister(socket);
 	else if (strcmp(req_type, REQ_LIST_USERS) == 0)
@@ -556,12 +558,11 @@ void connect_user(int socket, struct in_addr addr)
 }
 
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// disconnect
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
 void disconnect_user(int socket){
+
+	/*Error for is_connected*/
+	int is_connected_res;
+
 	//variable for the output of error
 	uint8_t res= DISCONNECT_USER_SUCCESS;
 
@@ -571,16 +572,10 @@ void disconnect_user(int socket){
 	{
 		if(is_registered(username))
 		{
-			/*Error for is_connected*/
-			int is_connected_res = -1;
-			if(is_connected("username",&is_connected_res)){
-				if (is_connected_res == IS_CONNECTED_SUCCESS)
-				{
-					remove_connected_user(username);
-					res=DISCONNECT_USER_SUCCESS;
-				}
-				else
-					res=DISCONNECT_USER_ERR_OTHER;			
+			if(is_connected("username",&is_connected_res)==IS_CONNECTED_SUCCESS)
+			{
+				remove_connected_user(username);
+				res=DISCONNECT_USER_SUCCESS;
 			}
 			else{
 				res=DISCONNECT_USER_ERR_NOT_CONNECTED;

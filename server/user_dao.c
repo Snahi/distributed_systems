@@ -391,10 +391,7 @@ int is_connected(char* username, int* p_err)
     int connected = 0;
 
     if (pthread_mutex_lock(&mutex_connected_users) != 0)
-    {
         res = IS_CONNECTED_ERR_LOCK_MUTEX;
-        printf("ERROR is_connected - could not lock mutex_connected_users\n");
-    }
     {
         int numOfConnectedUsers = vector_size(connected_users);
         for (int i = 0; i < numOfConnectedUsers; i++)
@@ -407,10 +404,7 @@ int is_connected(char* username, int* p_err)
         }
 
         if (pthread_mutex_unlock(&mutex_connected_users) != 0)
-        {
             res = IS_CONNECTED_ERR_UNLOCK_MUTEX;
-            printf("ERROR is_connected - could not unlock mutex_connected_users\n");
-        }
     }
 
     *p_err = res;
@@ -456,16 +450,37 @@ int get_connected_users(user*** p_users)
 ///////////////////////////S////////////////////////////////////////////////////////////////////////
 // remove_connected_userS
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void remove_connected_user(char*name){
+int remove_connected_user(char*name){
    
-   int totalConnectedUsers= vector_size(connected_users);
+   int res= REMOVE_CONNECTED_USERS_SUCCESS;
     
-    /*traverse the vector*/
-    for (int i = 0; i < totalConnectedUsers; i++)
+    if(pthread_mutex_lock(&mutex_connected_users)!=0)
     {
-        if (strcmp(connected_users[i]->username, name) == 0)
-            free(connected_users[i]);
-            vector_remove(&connected_users,i);
+        printf("ERROR remove_connected:user, could not unlock mutex\n");
+        res=REMOVE_CONNECTED_USERS_ERR_LOCK_MUTEX;
     }
-
+    else
+    {
+        int totalConnectedUsers= vector_size(connected_users);
+        /*traverse the vector*/
+        for (int i = 0; i < totalConnectedUsers; i++)
+        {
+            if (strcmp(connected_users[i]->username, name) == 0)
+            {
+                free(connected_users[i]);
+                vector_remove(&connected_users,i);
+                    
+                /*unlock mutex*/
+                if(pthread_mutex_unlock(&mutex_connected_users)!= 0)
+                {
+                    printf("ERROR remove_connected_users= could not unlock mutex\n");
+                    res=REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
+                }
+                break; 
+            }
+        }
+        
+    }   
+          
+    return res;
 }
