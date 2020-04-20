@@ -428,11 +428,19 @@ int get_connected_users(user*** p_users)
     }
     else
     {
+        user* p_connected_user = NULL;
         *p_users = vector_create();
         int num_of_connected_users = vector_size(connected_users);
         for (int i = 0; i < num_of_connected_users; i++)
         {
-            vector_add(p_users, connected_users[i]);
+            p_connected_user = connected_users[i];
+
+            user* p_user = malloc(sizeof(user));
+            memcpy(&p_user->ip, &p_connected_user->ip, sizeof(p_connected_user->ip));
+            strcpy(p_user->username, p_connected_user->username);
+            strcpy(p_user->port, p_connected_user->port);
+
+            vector_add(p_users, p_user);
         }
 
         if (pthread_mutex_unlock(&mutex_connected_users) != 0)

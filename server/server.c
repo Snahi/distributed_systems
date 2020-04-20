@@ -611,7 +611,12 @@ void list_users(int socket)
 		printf("ERROR list_users - could not send response\n");
 
 	if (users_list != NULL)
+	{
+		int num_of_conn_users = vector_size(users_list);
+		for (int i = 0; i < num_of_conn_users; i++)
+			free(users_list[i]);
 		vector_free(users_list);
+	}
 }
 
 
