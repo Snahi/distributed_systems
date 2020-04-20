@@ -455,6 +455,40 @@ int get_connected_users(user*** p_users)
 
 
 
+///////////////////////////S////////////////////////////////////////////////////////////////////////
+// remove_connected_userS
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// disconnect user
-///////////////////////////////////////////////////////////////////////////////////////////////////
+int remove_connected_user(char*name){
+   
+   int res= REMOVE_CONNECTED_USERS_SUCCESS;
+    
+    if(pthread_mutex_lock(&mutex_connected_users)!=0)
+    {
+        printf("ERROR remove_connected:user, could not unlock mutex\n");
+        res=REMOVE_CONNECTED_USERS_ERR_LOCK_MUTEX;
+    }
+    else
+    {
+        int totalConnectedUsers= vector_size(connected_users);
+        /*traverse the vector*/
+        for (int i = 0; i < totalConnectedUsers; i++)
+        {
+            if (strcmp(connected_users[i]->username, name) == 0)
+            {
+                free(connected_users[i]);
+                vector_remove(&connected_users,i);
+                    
+                /*unlock mutex*/
+                if(pthread_mutex_unlock(&mutex_connected_users)!= 0)
+                {
+                    printf("ERROR remove_connected_users= could not unlock mutex\n");
+                    res=REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
+                }
+                break; 
+            }
+        }
+        
+    }   
+          
+    return res;
+}

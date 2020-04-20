@@ -66,7 +66,11 @@
 #define CONNECT_USER_ERR_OTHER 3
 #define MAX_NUMBER_OF_CONNECTED_USERS 4000000
 #define MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN 7
-
+//disconnect
+#define DISCONNECT_USER_SUCCESS 0
+#define DISCONNECT_USER_ERR_NOT_REGISTERED 1
+#define DISCONNECT_USER_ERR_NOT_CONNECTED 2
+#define DISCONNECT_USER_ERR_OTHER 3
 
 
 struct req_thread_args {
@@ -168,6 +172,8 @@ int is_username_valid(char* username);
 void unregister(int socket);
 
 void connect_user(int socket, struct in_addr);
+
+void disconnect_user(int socket);
 
 int read_port(int socket, char* port);
 

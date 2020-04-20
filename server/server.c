@@ -441,6 +441,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 		register_user(socket);
 	else if (strcmp(req_type, REQ_CONNECT) == 0)
 		connect_user(socket, p_args->addr);
+	else if (strcmp(req_type, REQ_DISCONNECT)==0)
+		disconnect_user(socket);
 	else if (strcmp(req_type, REQ_UNREGISTER) == 0)
 		unregister(socket);
 	else if (strcmp(req_type, REQ_LIST_USERS) == 0)
@@ -589,6 +591,42 @@ void connect_user(int socket, struct in_addr addr)
 		printf("ERROR connect - could not send response\n");
 }
 
+
+void disconnect_user(int socket){
+
+	/*Error for is_connected*/
+	int is_connected_res;
+
+	//variable for the output of error
+	uint8_t res= DISCONNECT_USER_SUCCESS;
+
+	char username[MAX_USERNAME_LEN+1];
+	/*read from socket*/
+	if(read_username(socket,username)>0)
+	{
+		if(is_registered(username))
+		{
+			if(is_connected("username",&is_connected_res)==IS_CONNECTED_SUCCESS)
+			{
+				remove_connected_user(username);
+				res=DISCONNECT_USER_SUCCESS;
+			}
+			else{
+				res=DISCONNECT_USER_ERR_NOT_CONNECTED;
+			}
+		}
+		else
+			res=DISCONNECT_USER_ERR_NOT_REGISTERED;
+		
+	}
+	else
+		res= DISCONNECT_USER_ERR_OTHER;
+	
+	/*sending back response to the client*/
+	if(send_msg(socket,(char*)&res,1)!=0)
+		printf("ERROR disconnect, unable to send response");
+
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
