@@ -14,6 +14,8 @@
 #include <regex.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
+#include <netdb.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,8 +50,12 @@ int main(int argc, char* argv[])
 	int port = obtain_port(argc, argv);
 	port = process_obtain_port_result(port);
 
-	// TODO obtain local ip address
-	char addr[] = "192.168.0.102";	// just temporary, needs to be changed
+	char* addr = get_server_ip();
+	if (addr == NULL)
+	{
+		printf("ERROR main - could not obtain server's ip\n");
+		return -1;
+	}
 
 	printf("init server %s:%d\n", addr, port);
 
@@ -159,6 +165,28 @@ int process_obtain_port_result(int port)
 	}
 
 	return final_port;
+}
+
+
+
+char* get_server_ip()
+{
+	char* p_res = NULL;
+
+	char hostname[256];
+	int hostname_res = gethostname(hostname, sizeof(hostname));
+	if (hostname_res == 0)
+	{
+		struct hostent* p_hostent = gethostbyname(hostname);
+		if (p_hostent != NULL)
+			p_res = inet_ntoa(*((struct in_addr*) p_hostent->h_addr_list[0]));
+		else
+			perror("get_server_ip - could not obtain hostent");
+	}
+	else // error in gethostname
+		perror("get_server_ip - could not obtain hostname");
+
+	return p_res;
 }
 
 
