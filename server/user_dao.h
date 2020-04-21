@@ -62,6 +62,8 @@
 #define PUBLISH_DIR_SUCCESS 0
 #define PUBLISH_DIR_ERR_EXISTS 1
 #define PUBLISH_DIR_ERR_DIRECTORY 2
+#define PUBLISH_DIR_ERR_MUTEX_LOCK 3
+#define PUBLISH_DIR_ERR_MUTEX_UNLOCK 4
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs

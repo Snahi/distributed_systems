@@ -134,6 +134,8 @@ int create_user(char* name)
 
 int publish_content_dir(char* file_name)
 {
+
+    int res= PUBLISH_DIR_SUCCESS;
     //create publish directory path 
     char dir_path[strlen(STORAGE_DIR_PATH) + strlen(file_name) + 1];
     strcpy(dir_path, STORAGE_DIR_PATH);
@@ -153,6 +155,14 @@ int publish_content_dir(char* file_name)
 
             }
         }
+        if(pthread_mutex_unlock(&mutex_storage)!= 0)
+        {
+            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
+            
+        }
+    }
+    else{
+        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
     }
 
     return PUBLISH_DIR_SUCCESS;
