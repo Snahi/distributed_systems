@@ -827,13 +827,13 @@ int publish_content(int socket){
 			/*check if the user is connected*/
 			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
 			{
-				int published_content = publish_content_dir(username);
+				int published_content = publish_content_dir(file_name,username);
 			}
 			else
 			{
 				res=PUBLISH_CONTENT_ERR_USER_NOTCONNECTED;
 			}	
-
+			
 		}
 		else
 		{

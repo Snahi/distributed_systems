@@ -128,12 +128,34 @@ int create_user(char* name)
     return CREATE_USER_SUCCESS;
 }
 
-publish_content_dir(char* name)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// publish_content_dir
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int publish_content_dir(char* file_name)
 {
     //create publish directory path 
-    
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, file_name);
 
-    //create user directory
+    struct dirent *user_file;
+
+    /*Open the directory for user*/
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        DIR* user_dir=opendir(dir_path);
+        if(user_dir !=NULL)
+        {
+            struct dirent* user_file;
+            while((user_file=readdir(user_dir))!= NULL)
+            {
+
+            }
+        }
+    }
+
+    return PUBLISH_DIR_SUCCESS;
 }
 
 

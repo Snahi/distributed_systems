@@ -58,7 +58,10 @@
 #define REMOVE_CONNECTED_USERS_SUCCESS 0
 #define REMOVE_CONNECTED_USERS_ERR_LOCK_MUTEX 1
 #define REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX 2
-
+//publish content
+#define PUBLISH_DIR_SUCCESS 0
+#define PUBLISH_DIR_ERR_EXISTS 1
+#define PUBLISH_DIR_ERR_DIRECTORY 2
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
