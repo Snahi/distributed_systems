@@ -572,7 +572,7 @@ void disconnect_user(int socket){
 	{
 		if(is_registered(username))
 		{
-			if(is_connected("username",&is_connected_res)==IS_CONNECTED_SUCCESS)
+			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
 			{
 				remove_connected_user(username);
 				res=DISCONNECT_USER_SUCCESS;
@@ -804,4 +804,64 @@ int read_port(int socket, char* port)
 
 	return total_read;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// publish_content
+///////////////////////////////////////////////////////////////////////////////////////////////////
 	
+int publish_content(int socket){
+	
+	/*To get the error for is_connected*/
+	int is_connected_res;
+	/*To store the output of the error*/
+	uint8_t res= PUBLISH_CONTENT_SUCCESS;
+
+	char username[MAX_USERNAME_LEN + 1];
+	char file_name[MAX_FILENAME_LEN + 1];
+
+	if(read_username(socket,username)>0)
+	{
+		/*check if user is registeration*/
+		if(is_registerd(username))
+		{
+			/*check if the user is connected*/
+			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
+			{
+				int published_content = publish_content_dir(username);
+			}
+			else
+			{
+				res=PUBLISH_CONTENT_ERR_USER_NOTCONNECTED;
+			}	
+
+		}
+		else
+		{
+			res=PUBLISH_CONTENT_ERR_USER_NONEXISTENT;
+		}
+
+	}
+	else{
+		res=PUBLISH_CONTENT_ERR_OTHER;
+	}
+
+	/* Send reply message to the client
+	if(send_msg(socket,(char*)&res,1)!=0)
+	*/
+
+	return res;
+}
+
+/*
+0 in case of success
+1 user does not exist
+2 if user is not connected
+3 if file is already published
+4 in any other case
+
+#define PUBLISH_CONTENT_SUCCESS 0;
+#define PUBLISH_CONTENT_ERR_USER_NONEXISTENT 1;
+#define PUBLISH_CONTENT_ERR_USER_NOTCONNECTED 2;
+#define PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED 3;
+#define PUBLISH_CONTENT_ERR_OTHER 4;
+*/

@@ -128,6 +128,14 @@ int create_user(char* name)
     return CREATE_USER_SUCCESS;
 }
 
+publish_content_dir(char* name)
+{
+    //create publish directory path 
+    
+
+    //create user directory
+}
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
