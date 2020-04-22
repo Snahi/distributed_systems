@@ -831,12 +831,12 @@ int publish_content(int socket){
 		if(is_registered(username))
 		{
 			/*check if the user is connected*/
-			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
+			if(is_connected(username,&is_connected_res))
 			{
 				/*If the user is connected, then publish content in their directory*/
 				int res_published = publish_content_dir(username,file_name,description);
 				
-				if (res_published == PUBLISH_DIR_SUCCESS)
+				if (res_published == PUBLISH_DIR_SUCCESS && is_connected_res == IS_CONNECTED_SUCCESS)
 					res =PUBLISH_CONTENT_SUCCESS;
 				else if (res == PUBLISH_DIR_ERR_DIRECTORY)
 					res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT;
