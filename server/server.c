@@ -821,13 +821,16 @@ int publish_content(int socket){
 
 	if(read_username(socket,username)>0)
 	{
-		/*check if user is registeration*/
+		/*check if user is registered-> if the user is registerd, it means that 
+		there is also an existing directory for the given username*/
 		if(is_registerd(username))
 		{
 			/*check if the user is connected*/
 			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
 			{
+				/*If the user is connected, then publish content in their directory*/
 				int published_content = publish_content_dir(file_name,username);
+
 			}
 			else
 			{

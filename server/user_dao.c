@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <stdlib.h> 
+#include <unistd.h>
 
 
 
@@ -132,18 +133,21 @@ int create_user(char* name)
 // publish_content_dir
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 int publish_content_dir(char* file_name)
 {
 
     int res= PUBLISH_DIR_SUCCESS;
+    
+    
     //create publish directory path 
     char dir_path[strlen(STORAGE_DIR_PATH) + strlen(file_name) + 1];
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, file_name);
 
     struct dirent *user_file;
-
-    /*Open the directory for user*/
+    
+    /*Open the directory for user
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
         DIR* user_dir=opendir(dir_path);
@@ -166,6 +170,50 @@ int publish_content_dir(char* file_name)
     }
 
     return PUBLISH_DIR_SUCCESS;
+}
+*/
+
+int publish_content_dir(char* file_name, char* name){
+
+    int res= PUBLISH_DIR_SUCCESS;
+    FILE * file_name;
+
+    /*directory path*/
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name) + 1];
+    strcypy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, name);
+
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        /*Check existence of the directory*/
+        if(access(dir_path, F_OK)!=0)
+        {
+            /*check if the file already exists in the system-PENDING*/
+
+            /*Opens the file file_name that was earlier created*/
+            file_name=fopen(dir_path,"w");
+            
+            /*writing into the file*/
+            if(file_name==NULL){
+                res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
+            }
+            else{
+                fputs(data, file_name);
+                fclose(file_name);
+            }
+        }
+        else
+        {
+            res=PUBLISH_DIR_ERR_DIRECTORY;
+        }
+
+    }
+    else
+    {
+        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
+    }
+
+    return res;
 }
 
 
