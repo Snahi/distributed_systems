@@ -58,8 +58,12 @@
 #define REMOVE_CONNECTED_USERS_SUCCESS 0
 #define REMOVE_CONNECTED_USERS_ERR_LOCK_MUTEX 1
 #define REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX 2
-
-
+//publish content
+#define PUBLISH_DIR_SUCCESS 0
+#define PUBLISH_DIR_ERR_NONEXISTANT  1
+#define PUBLISH_DIR_ERR_FILE_NOTCREATED 2
+#define PUBLISH_DIR_ERR_MUTEX_LOCK 3
+#define PUBLISH_DIR_ERR_MUTEX_UNLOCK 4
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
@@ -152,3 +156,5 @@ int get_connected_users(user*** p_users);
 int is_connected(char* username, int* p_err);
 
 int remove_connected_user(char*name);
+
+int publish_content_dir(char* name,char* file_name,char* descr );
