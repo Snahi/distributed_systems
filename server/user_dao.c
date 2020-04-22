@@ -148,43 +148,35 @@ int publish_content_dir(char* name, char* file_name, char* descr){
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, name);
     strcat(dir_path, STORAGE_SLASH);
+    strcat(dir_path,file_name);
+
     
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
-        /*Check existence of the directory*/
-        if(access(dir_path, F_OK)!=-1)
+        /*checks if the file with that filename already exists*/
+        if(access(dir_path, F_OK)==-1)
         {
-            strcat(dir_path,file_name);
-
-            /*checks if the file with that filename already exists*/
-            if(access(dir_path, F_OK)==-1)
+            /*Opens the file_name that was earlier created*/
+            fileptr=fopen(dir_path,"w");
+                
+            /*Checking if the file was created successfully*/
+            if(fileptr==NULL)
             {
-                /*Opens the file_name that was earlier created*/
-                fileptr=fopen(dir_path,"w");
+                res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
                 
-                /*Checking if the file was created successfully*/
-                if(fileptr==NULL)
-                {
-                    res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
-                
-                }
-                else
-                {
-                    /*fputs(data, file_name);*/
-                    fputs(descr,fileptr);
-                    fclose(fileptr);
-                }
             }
             else
             {
-                res=PUBLISH_DIR_ERR_EXISTS;
-            } 
-           
+                /*fputs(data, file_name);*/
+                fputs(descr,fileptr);
+                fclose(fileptr);
+            }
         }
         else
         {
-            res=PUBLISH_DIR_ERR_DIRECTORY;
-        }
+            res=PUBLISH_DIR_ERR_EXISTS;
+        } 
+        
         // unlock the storage mutex
         if (pthread_mutex_unlock(&mutex_storage) != 0)
         {
