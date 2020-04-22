@@ -85,11 +85,11 @@ class client implements Runnable {
 	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
     public void run() {
 		//timeout_time ASK IF NECESSARY
-		try {
+		/*try {
             server_Socket.setSoTimeout(1000); 
         }
 		catch(Exception e){}
-		
+		*/
         while(operating_thread == true) {
             try {
 				Socket cli_ser_Socket = server_Socket.accept(); 
@@ -132,20 +132,23 @@ class client implements Runnable {
 						//RETURN 1
 					}
 				}
+				else {
+					//NO HAY REQUEST
+				}
             }
             catch(SocketTimeoutException e){
 				//RETURN 2
-				System.out.println("GET_FILE FAIL");
+				System.out.println("GET_FILE FAIL 1");
 			}
             catch(IOException ie) {
 				//RETURN 2
-				System.out.println("GET_FILE FAIL");
+				System.out.println("GET_FILE FAIL 2");
                 //System.out.println("c> Message receiving thread finished execution. Connect again to restore.");
                 ie.printStackTrace();
             }
             catch(Exception e){
 				//RETURN 2
-				System.out.println("GET_FILE FAIL");
+				System.out.println("GET_FILE FAIL 3");
 			}
         }
     }
