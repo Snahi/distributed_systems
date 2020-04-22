@@ -422,6 +422,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 		list_users(socket);
 	else if (strcmp(req_type, REQ_LIST_CONTENT) == 0)
 		list_content(socket);
+	else if (strcmp(req_type, REQ_PUBLISH) == 0)
+		publish_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
 
