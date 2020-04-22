@@ -15,6 +15,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // paths
 #define STORAGE_DIR_PATH "storage/"
+#define STORAGE_SLASH "/"
 // names lengths
 #define MAX_FILENAME_LEN 256
 // delete_all_user_files
@@ -27,6 +28,7 @@
 
 
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,8 +37,7 @@ pthread_mutex_t mutex_connected_users;
 user** connected_users;
 
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
 // init
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -133,78 +134,52 @@ int create_user(char* name)
 // publish_content_dir
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
-int publish_content_dir(char* file_name)
-{
 
+int publish_content_dir(char* name, char* file_name, char* descr){
+
+    /*variable to store error*/
     int res= PUBLISH_DIR_SUCCESS;
-    
-    
-    //create publish directory path 
-    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(file_name) + 1];
-    strcpy(dir_path, STORAGE_DIR_PATH);
-    strcat(dir_path, file_name);
 
-    struct dirent *user_file;
-    
-    /*Open the directory for user
-    if(pthread_mutex_lock(&mutex_storage)==0)
-    {
-        DIR* user_dir=opendir(dir_path);
-        if(user_dir !=NULL)
-        {
-            struct dirent* user_file;
-            while((user_file=readdir(user_dir))!= NULL)
-            {
-
-            }
-        }
-        if(pthread_mutex_unlock(&mutex_storage)!= 0)
-        {
-            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
-            
-        }
-    }
-    else{
-        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
-    }
-
-    return PUBLISH_DIR_SUCCESS;
-}
-*/
-
-int publish_content_dir(char* file_name, char* name){
-
-    int res= PUBLISH_DIR_SUCCESS;
-    FILE * file_name;
+     /*File pointer to hold the reference to the file*/
+    FILE * fileptr;
 
     /*directory path*/
-    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name) + 1];
-    strcypy(dir_path, STORAGE_DIR_PATH);
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name)+ strlen(STORAGE_SLASH)+strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, name);
-
+    strcat(dir_path, STORAGE_SLASH);
+    strcat(dir_path,file_name);
+    
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
         /*Check existence of the directory*/
-        if(access(dir_path, F_OK)!=0)
+        if(access(dir_path, F_OK)!=-1)
         {
-            /*check if the file already exists in the system-PENDING*/
-
-            /*Opens the file file_name that was earlier created*/
-            file_name=fopen(dir_path,"w");
+            /*Opens the file_name that was earlier created*/
+            fileptr=fopen(dir_path,"w");
             
             /*writing into the file*/
-            if(file_name==NULL){
+            if(fileptr==NULL)
+            {
                 res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
+            
             }
-            else{
-                fputs(data, file_name);
-                fclose(file_name);
+            else
+            {
+                /*fputs(data, file_name);*/
+                fputs(descr,fileptr);
+                fclose(fileptr);
             }
         }
         else
         {
             res=PUBLISH_DIR_ERR_DIRECTORY;
+        }
+        // unlock the storage mutex
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
+            printf("ERROR publish_directory - could not unlock mutex\n");
         }
 
     }
@@ -271,7 +246,7 @@ int delete_user(char* name)
     char dir_path[user_folder_path_len + 1]; 
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, name);
-    strcat(dir_path, "/");
+    strcat(dir_path, STORAGE_SLASH);
 
     // acquire the storage mutex
     if (pthread_mutex_lock(&mutex_storage) == 0)

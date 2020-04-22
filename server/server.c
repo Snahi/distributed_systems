@@ -65,6 +65,8 @@ int main(int argc, char* argv[])
 	if (init_copy_client_socket_concurrency_mechanisms() != 0)
 		return -1;
 
+		
+
 	// init request thread
 	pthread_attr_t attr_req_thread;
 	if (init_request_thread_attr(&attr_req_thread) != 0)
@@ -80,6 +82,7 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 	
+	
 	// start waiting for requests
 	struct sockaddr_in client_addr;
 	int client_socket;
@@ -90,6 +93,7 @@ int main(int argc, char* argv[])
 		return -1;
 
 	struct req_thread_args args;
+
 	
     while (is_running)
     {
@@ -818,18 +822,26 @@ int publish_content(int socket){
 
 	char username[MAX_USERNAME_LEN + 1];
 	char file_name[MAX_FILENAME_LEN + 1];
+	char description[MAX_FILE_DESC_LEN+1];
 
 	if(read_username(socket,username)>0)
 	{
 		/*check if user is registered-> if the user is registerd, it means that 
 		there is also an existing directory for the given username*/
-		if(is_registerd(username))
+		if(is_registered(username))
 		{
 			/*check if the user is connected*/
 			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
 			{
 				/*If the user is connected, then publish content in their directory*/
-				int published_content = publish_content_dir(file_name,username);
+				int res_published = publish_content_dir(username,file_name,description);
+				
+				if (res_published == PUBLISH_DIR_SUCCESS)
+					res =PUBLISH_CONTENT_SUCCESS;
+				else if (res == PUBLISH_DIR_ERR_DIRECTORY)
+					res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT;
+				else
+					res = PUBLISH_CONTENT_ERR_OTHER;
 
 			}
 			else

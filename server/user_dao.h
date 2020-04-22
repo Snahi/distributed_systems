@@ -158,4 +158,4 @@ int is_connected(char* username, int* p_err);
 
 int remove_connected_user(char*name);
 
-int publish_content_dir(char* file_name, char* name);
+int publish_content_dir(char* name,char* file_name,char* descr );
