@@ -81,6 +81,7 @@
 #define PUBLISH_CONTENT_ERR_OTHER 4
 
 
+
 struct req_thread_args {
 	int socket;
 	struct in_addr addr;
@@ -107,6 +108,10 @@ int process_obtain_port_result(int port);
 	starts listening for ctrl+c to finish the program.
 	Returns 1 on success and 0 on fail
 */
+/*
+	returns 
+*/
+char* get_server_ip();
 int start_listening_sigint();
 /*
 	Prints a cmd template for starting the server

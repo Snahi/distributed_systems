@@ -1,14 +1,16 @@
 import java.io.*;
 import java.net.*;
 import gnu.getopt.Getopt;
-import java.lang.*;
+//import java.lang.*;
 
 
-class client {
+class client implements Runnable {
 
 	static final int OK = 0;
 	static final int ERROR_USER = 1;
 	static final int ERROR = 2;
+
+	static final String pathfiles="/home/alejandro/Escritorio/distributed_systems/client/clientes";
 
 	/* Cna we use enum for returning codes??
 	private static enum CODE {
@@ -43,6 +45,12 @@ class client {
 	/********************* METHODS ********************/
 	
 
+	public boolean file_exist (String file, String user){
+		
+		
+		return true;
+	}
+
 	
 	public static String readbytes(DataInputStream a) throws IOException {
         String bytes = "";
@@ -50,7 +58,8 @@ class client {
         byte current = 'r';
         while (lastcharacter != '\0') {
             current = a.readByte();
-            bytes = bytes + (char) current;
+			if (current != '\0')
+				bytes = bytes + (char) current;
             lastcharacter = current;
         }
         return bytes;
@@ -76,22 +85,71 @@ class client {
 	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
     public void run() {
 		//timeout_time ASK IF NECESSARY
-		try {
+		/*try {
             server_Socket.setSoTimeout(1000); 
         }
 		catch(Exception e){}
-		
+		*/
         while(operating_thread == true) {
             try {
-                Socket client_Socket = server_Socket.accept(); 
-		
+				Socket cli_ser_Socket = server_Socket.accept(); 
+				
+				DataInputStream inFromServer = new DataInputStream(cli_ser_Socket.getInputStream());
+				String s = readbytes(inFromServer);
+				
+				if (s.equals("GET_FILE\0")) {
+					//String user = readbytes(inFromServer);
+                    String remote_file_name = readbytes(inFromServer);
+					String local_file_name = readbytes(inFromServer);
+					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
+					File fichero = new File(pathfichero);
+					if (fichero.exists()){
+						DataInputStream input;
+        				BufferedInputStream bis;
+						BufferedOutputStream bos;
+						byte[] byteArray;
+						int in;
+
+						bis = new BufferedInputStream(new FileInputStream(fichero));
+						bos = new BufferedOutputStream(cli_ser_Socket.getOutputStream());
+			
+						//enviamos el nombre del archivo            
+						DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
+						dos.writeUTF(fichero.getName());
+			
+						byteArray = new byte[8192];
+						while ((in = bis.read(byteArray)) != -1){
+							bos.write(byteArray,0,in);
+						}
+			
+						bis.close();
+						bos.close();
+						//RETURN 0
+							//SI SE TRANSFIERE ENTERO
+							//System.out.println("GET_FILE OK");
+					}
+					else {
+						//RETURN 1
+					}
+				}
+				else {
+					//NO HAY REQUEST
+				}
             }
-            catch(SocketTimeoutException e){}
+            catch(SocketTimeoutException e){
+				//RETURN 2
+				System.out.println("GET_FILE FAIL 1");
+			}
             catch(IOException ie) {
-                System.out.println("c> Message receiving thread finished execution. Connect again to restore.");
+				//RETURN 2
+				System.out.println("GET_FILE FAIL 2");
+                //System.out.println("c> Message receiving thread finished execution. Connect again to restore.");
                 ie.printStackTrace();
             }
-            catch(Exception e){}
+            catch(Exception e){
+				//RETURN 2
+				System.out.println("GET_FILE FAIL 3");
+			}
         }
     }
 
@@ -140,6 +198,10 @@ class client {
 			client_Socket.close();
 
 		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> REGISTER FAIL");
+		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
 			e.printStackTrace();
@@ -170,8 +232,14 @@ class client {
 
             //Switch for the different returning messages from the server
             switch (response){
-                case 0:
+				case 0:
+				if (user.equals(username))
+				{
+					username = "";
+					operating_thread = false;
+				}
 				System.out.println("c> UNREGISTER OK");
+				connect = false;
 				rc=0;
 				break;
 				
@@ -235,9 +303,9 @@ class client {
                     System.out.println("c> CONNECT OK");
 		    		//Set the variable of the thread operating to true
                     operating_thread = true; 
-                    //THREAD ??
-                    connect = true; 
-                    username = user; 
+					new Thread(new client(server_Socket)).start();
+					connect = true; 
+					username = user; 
                     break;
 					
 					case 1:
@@ -262,7 +330,11 @@ class client {
                 //We close the socket
                 client_Socket.close();
 
-            }
+			}
+			catch (ConnectException e)
+			{
+				System.out.println("c> CONNECT FAIL");
+			}
             catch (Exception e) {
                 System.out.println("Exception: " + e);
                 e.printStackTrace();
@@ -513,7 +585,7 @@ class client {
 			outToServer.writeBytes("LIST_USERS\0");
 			outToServer.flush();
 			//JUST FOR NOW WE SET MANUALLY THE USERNAME
-			username="alex";
+			// username="alex";
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
 
@@ -566,6 +638,10 @@ class client {
 			//After checkhing the response, we close the socket
 			client_Socket.close();
 
+		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> LIST_USERS FAIL");
 		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
@@ -658,6 +734,10 @@ class client {
 			client_Socket.close();
 
 		}
+		catch (ConnectException e)
+		{
+			System.out.println("c> LIST_CONTENT FAIL");
+		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
 			e.printStackTrace();
@@ -680,9 +760,68 @@ class client {
 	 */
 	static int get_file(String user_name, String remote_file_name, String local_file_name)
 	{
+
+
+		String c2_ip=null;
+		int c2_port=-1;
+		//OBTAINING THE IP AND PORT (IN SOME WAY)
+
+
+		try {
+			//REQUESTING THE FILE
+			Socket client_Socket = new Socket(c2_ip,c2_port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+			
+
+			//RECIBING THE FILE
+			//DataOutputStream output;
+			BufferedInputStream bis;
+			BufferedOutputStream bos;
+			byte[] receivedData;
+			boolean tranfered=false;
+			int in;
+			//String file;
+			int tam;
+			
+			while ( !tranfered ) {
+
+                
+                bis = new BufferedInputStream(client_Socket.getInputStream());
+                DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
+            
+                //recibimos el nombre del fichero
+				//file = dis.readUTF();
+				tam = dis.readInt(); 
+				receivedData = new byte[tam];
+
+                //file = file.substring(file.indexOf('/')+1,file.length());
+
+                bos = new BufferedOutputStream(new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name));
+				
+				//If not we can  use a for loop also
+				while ((in = bis.read(receivedData)) != -1){
+                    bos.write(receivedData,0,in);
+				}
+				bos.flush();
+                bos.close();
+				dis.close();
+				       
+			
+			}
+			client_Socket.close();
+			return 0;
+		}
+		catch (Exception e) {
+			//TODO: handle exception
+		}
+		return 0;
+
+
+		/*
 		// Write your code here
 		System.out.println("GET_FILE " + user_name + " "  + remote_file_name + " " + local_file_name);
 		return 0;
+		*/
 	}
 
 	

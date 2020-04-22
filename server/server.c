@@ -14,6 +14,8 @@
 #include <regex.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
+#include <netdb.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,10 +50,15 @@ int main(int argc, char* argv[])
 	int port = obtain_port(argc, argv);
 	port = process_obtain_port_result(port);
 
-	// TODO obtain local ip address
-	char addr[] = "192.168.0.102";	// just temporary, needs to be changed
+	char* addr = get_server_ip();
+	if (addr == NULL)
+	{
+		printf("ERROR main - could not obtain server's ip\n");
+		return -1;
+	}
 
-	printf("init server %s:%d\n", addr, port);
+	printf("s> init server %s:%d\n", addr, port);
+	printf("s>\n");
 
 	// initialize the main socket
 	int server_socket = -1;
@@ -167,6 +174,28 @@ int process_obtain_port_result(int port)
 
 
 
+char* get_server_ip()
+{
+	char* p_res = NULL;
+
+	char hostname[256];
+	int hostname_res = gethostname(hostname, sizeof(hostname));
+	if (hostname_res == 0)
+	{
+		struct hostent* p_hostent = gethostbyname(hostname);
+		if (p_hostent != NULL)
+			p_res = inet_ntoa(*((struct in_addr*) p_hostent->h_addr_list[0]));
+		else
+			perror("get_server_ip - could not obtain hostent");
+	}
+	else // error in gethostname
+		perror("get_server_ip - could not obtain hostname");
+
+	return p_res;
+}
+
+
+
 void print_usage() 
 {
 	printf("Usage: server -p <port [1024 - 49151]> \n");
@@ -273,7 +302,7 @@ int init_request_thread_attr(pthread_attr_t* attr)
 
 
 
-void set_exit_flat(int val)
+void set_exit_flag(int val)
 {
 	is_running = 0;
 }
@@ -285,7 +314,7 @@ int start_listening_sigint()
 	struct sigaction act;
 	memset(&act, '\0', sizeof(act));
 
-	act.sa_handler = &set_exit_flat;
+	act.sa_handler = &set_exit_flag;
 
 	if (sigaction(SIGINT, &act, NULL) != 0)
 	{
@@ -311,7 +340,7 @@ int wait_till_socket_copying_is_done()
 		if (pthread_cond_wait(&cond_csd, &mutex_csd) != 0)
 		{
 			printf("ERROR wait_till_socket_copying_is_done - during condition wait\n");
-			return -1;	// if fails in this program, it's a serious error, stop the server
+			return -1;
 		}
 	}
 
@@ -409,6 +438,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
 
+	printf("s> %s FROM ", req_type); // print operation
+
 	// process request type
 	if (strcmp(req_type, REQ_REGISTER) == 0)
 		register_user(socket);
@@ -445,6 +476,7 @@ void register_user(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0)	// username specified
 	{
+		printf("%s\n", username);
 		if (is_username_valid(username))
 		{
 			int create_user_res = create_user(username);
@@ -505,13 +537,31 @@ void unregister(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0)	// username specified
 	{
-		int delete_res = delete_user(username);
+		printf("%s\n", username);
 
-		switch (delete_res)
+		int is_connected_err = -1;
+		if (is_connected(username, &is_connected_err))
 		{
-			case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
-			case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
-			default							: res = UNREGISTER_OTHER_ERROR; 
+			if (is_connected_err != IS_CONNECTED_SUCCESS)
+				res = UNREGISTER_OTHER_ERROR;
+			else
+			{
+				if (remove_connected_user(username) != REMOVE_CONNECTED_USERS_SUCCESS)
+					res = UNREGISTER_OTHER_ERROR;
+			}
+			
+		}
+
+		if (res == UNREGISTER_SUCCESS)
+		{
+			int delete_res = delete_user(username);
+
+			switch (delete_res)
+			{
+				case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
+				case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
+				default							: res = UNREGISTER_OTHER_ERROR; 
+			}
 		}
 	}
 	else
@@ -537,6 +587,7 @@ void connect_user(int socket, struct in_addr addr)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // username specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			char port[MAX_PORT_STR_SIZE + 1];
@@ -576,12 +627,15 @@ void disconnect_user(int socket){
 	/*read from socket*/
 	if(read_username(socket,username)>0)
 	{
+		printf("%s\n", username);
 		if(is_registered(username))
 		{
-			if(is_connected(username,&is_connected_res)==IS_CONNECTED_SUCCESS)
+			if(is_connected(username,&is_connected_res))
 			{
-				remove_connected_user(username);
-				res=DISCONNECT_USER_SUCCESS;
+				if (remove_connected_user(username) == REMOVE_CONNECTED_USERS_SUCCESS)
+					res=DISCONNECT_USER_SUCCESS;
+				else
+					res = DISCONNECT_USER_ERR_OTHER;
 			}
 			else{
 				res=DISCONNECT_USER_ERR_NOT_CONNECTED;
@@ -613,6 +667,7 @@ void list_users(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if user specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			int is_connected_res;
@@ -655,7 +710,12 @@ void list_users(int socket)
 		printf("ERROR list_users - could not send response\n");
 
 	if (users_list != NULL)
+	{
+		int num_of_conn_users = vector_size(users_list);
+		for (int i = 0; i < num_of_conn_users; i++)
+			free(users_list[i]);
 		vector_free(users_list);
+	}
 }
 
 
@@ -703,6 +763,7 @@ void list_content(int socket)
 	char username[MAX_USERNAME_LEN + 1];
 	if (read_username(socket, username) > 0) // if requesting user specified
 	{
+		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			int is_connected_res;
