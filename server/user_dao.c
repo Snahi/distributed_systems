@@ -174,7 +174,7 @@ int publish_content_dir(char* name, char* file_name, char* descr){
         }
         else
         {
-            res=PUBLISH_DIR_ERR_EXISTS;
+            res=PUBLISH_DIR_ERR_NONEXISTANT;
         } 
         
         // unlock the storage mutex

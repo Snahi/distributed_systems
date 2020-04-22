@@ -795,6 +795,29 @@ int read_username(int socket, char* username)
 	return total_read;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_file_name
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_file_name(int socket, char* file_name)
+{
+	int total_read = read_line(socket, file_name , MAX_FILENAME_LEN);
+	file_name[MAX_FILENAME_LEN] = '\0'; // just in case if the username was not finished properly
+	
+	return total_read;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_description
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_description(int socket, char* description)
+{
+	int total_read = read_line(socket, description, MAX_FILE_DESC_LEN);
+	description[MAX_FILE_DESC_LEN] = '\0'; // just in case if the username was not finished properly
+	
+	return total_read;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -824,7 +847,7 @@ int publish_content(int socket){
 	char file_name[MAX_FILENAME_LEN + 1];
 	char description[MAX_FILE_DESC_LEN+1];
 
-	if(read_username(socket,username)>0)
+	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0 && read_description(socket,description)>0)
 	{
 		/*check if user is registered-> if the user is registerd, it means that 
 		there is also an existing directory for the given username*/
@@ -834,15 +857,21 @@ int publish_content(int socket){
 			if(is_connected(username,&is_connected_res))
 			{
 				/*If the user is connected, then publish content in their directory*/
-				int res_published = publish_content_dir(username,file_name,description);
-				
-				if (res_published == PUBLISH_DIR_SUCCESS && is_connected_res == IS_CONNECTED_SUCCESS)
-					res =PUBLISH_CONTENT_SUCCESS;
-				else if (res == PUBLISH_DIR_ERR_DIRECTORY)
-					res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT;
-				else
-					res = PUBLISH_CONTENT_ERR_OTHER;
+				if(is_connected_res==IS_CONNECTED_SUCCESS)
+				{
+					int res_published = publish_content_dir(username,file_name,description);
+					
+					if (res_published == PUBLISH_DIR_SUCCESS)
+						res =PUBLISH_CONTENT_SUCCESS;
+					else
+						res = PUBLISH_CONTENT_ERR_OTHER;
 
+				}
+				else
+				{
+					res=PUBLISH_CONTENT_ERR_OTHER;
+				}
+				
 			}
 			else
 			{
@@ -860,23 +889,6 @@ int publish_content(int socket){
 		res=PUBLISH_CONTENT_ERR_OTHER;
 	}
 
-	/* Send reply message to the client
-	if(send_msg(socket,(char*)&res,1)!=0)
-	*/
-
 	return res;
 }
 
-/*
-0 in case of success
-1 user does not exist
-2 if user is not connected
-3 if file is already published
-4 in any other case
-
-#define PUBLISH_CONTENT_SUCCESS 0;
-#define PUBLISH_CONTENT_ERR_USER_NONEXISTENT 1;
-#define PUBLISH_CONTENT_ERR_USER_NOTCONNECTED 2;
-#define PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED 3;
-#define PUBLISH_CONTENT_ERR_OTHER 4;
-*/

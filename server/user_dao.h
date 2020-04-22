@@ -60,11 +60,10 @@
 #define REMOVE_CONNECTED_USERS_ERR_UNLOCK_MUTEX 2
 //publish content
 #define PUBLISH_DIR_SUCCESS 0
-#define PUBLISH_DIR_ERR_EXISTS 1
-#define PUBLISH_DIR_ERR_DIRECTORY 2
-#define PUBLISH_DIR_ERR_FILE_NOTCREATED 3
-#define PUBLISH_DIR_ERR_MUTEX_LOCK 4
-#define PUBLISH_DIR_ERR_MUTEX_UNLOCK 5
+#define PUBLISH_DIR_ERR_NONEXISTANT  1
+#define PUBLISH_DIR_ERR_FILE_NOTCREATED 2
+#define PUBLISH_DIR_ERR_MUTEX_LOCK 3
+#define PUBLISH_DIR_ERR_MUTEX_UNLOCK 4
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
