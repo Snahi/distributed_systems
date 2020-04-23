@@ -28,6 +28,7 @@
 #define REQ_LIST_USERS "LIST_USERS"
 #define REQ_LIST_CONTENT "LIST_CONTENT"
 #define REQ_PUBLISH "PUBLISH"
+#define REQ_DELETE_PUBLISH "DELETE"
 // register
 #define MAX_USERNAME_LEN 256
 #define REGISTER_SUCCESS 0
@@ -216,3 +217,5 @@ void list_content(int socket);
 int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
 int publish_content(int socket);
+
+int delete_published_content(int socket);

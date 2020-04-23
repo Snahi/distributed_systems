@@ -455,6 +455,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 		list_content(socket);
 	else if (strcmp(req_type, REQ_PUBLISH) == 0)
 		publish_content(socket);
+	else if (strcmp(req_type, REQ_DELETE_PUBLISH)==0)
+		delete_published_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
 
@@ -961,21 +963,21 @@ int delete_published_content(int socket){
 
 	/*To get the error for is_connected*/
 	int is_connected_res;
+	
 	/*To store the output of the error*/
 	uint8_t res= DELETE_PUBLISHED_CONT_SUCCESS;
-	int is_connected_err = -1;
+
 
 	char username[MAX_USERNAME_LEN + 1];
 	char file_name[MAX_FILENAME_LEN + 1];
-	char description[MAX_FILE_DESC_LEN+1];
 
 	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0)
 	{
 		/*To check if the user is registered*/
-		if(is_registerd(username))
+		if(is_registered(username))
 		{
 			/*To check if the user is connected*/
-			if(is_connected(username,&is_connected_err))
+			if(is_connected(username,&is_connected_res))
 			{
 				if(is_connected_res==IS_CONNECTED_SUCCESS)
 				{
@@ -1001,6 +1003,7 @@ int delete_published_content(int socket){
 	{
 		res=DELETE_PUBLISHED_CONT_ERR_OTHER;
 	}
+	return res;
 
 }
 
