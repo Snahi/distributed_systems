@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <stdlib.h> 
+#include <unistd.h>
 
 
 
@@ -14,6 +15,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // paths
 #define STORAGE_DIR_PATH "storage/"
+#define STORAGE_SLASH "/"
 // names lengths
 #define MAX_FILENAME_LEN 256
 // delete_all_user_files
@@ -26,6 +28,7 @@
 
 
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,8 +37,7 @@ pthread_mutex_t mutex_connected_users;
 user** connected_users;
 
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
 // init
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -128,6 +130,69 @@ int create_user(char* name)
     return CREATE_USER_SUCCESS;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// publish_content_dir
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+int publish_content_dir(char* name, char* file_name, char* descr){
+
+    /*variable to store error*/
+    int res= PUBLISH_DIR_SUCCESS;
+
+     /*File pointer to hold the reference to the file*/
+    FILE * fileptr;
+
+    /*directory path*/
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name)+ strlen(STORAGE_SLASH)+strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, name);
+    strcat(dir_path, STORAGE_SLASH);
+    strcat(dir_path,file_name);
+
+    
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        /*checks if the file with that filename already exists*/
+        if(access(dir_path, F_OK)==-1)
+        {
+            /*Opens the file_name that was earlier created*/
+            fileptr=fopen(dir_path,"w");
+                
+            /*Checking if the file was created successfully*/
+            if(fileptr==NULL)
+            {
+                res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
+                
+            }
+            else
+            {
+                /*fputs(data, file_name);*/
+                fputs(descr,fileptr);
+                fclose(fileptr);
+            }
+        }
+        else
+        {
+            res=PUBLISH_DIR_ERR_NONEXISTANT;
+        } 
+        
+        // unlock the storage mutex
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
+            printf("ERROR publish_directory - could not unlock mutex\n");
+        }
+
+    }
+    else
+    {
+        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
+    }
+
+    return res;
+}
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -183,7 +248,7 @@ int delete_user(char* name)
     char dir_path[user_folder_path_len + 1]; 
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, name);
-    strcat(dir_path, "/");
+    strcat(dir_path, STORAGE_SLASH);
 
     // acquire the storage mutex
     if (pthread_mutex_lock(&mutex_storage) == 0)

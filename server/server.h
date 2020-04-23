@@ -27,6 +27,7 @@
 #define REQ_UNREGISTER "UNREGISTER"
 #define REQ_LIST_USERS "LIST_USERS"
 #define REQ_LIST_CONTENT "LIST_CONTENT"
+#define REQ_PUBLISH "PUBLISH"
 // register
 #define MAX_USERNAME_LEN 256
 #define REGISTER_SUCCESS 0
@@ -36,9 +37,6 @@
 #define UNREGISTER_SUCCESS 0
 #define UNREGISTER_NO_SUCH_USER 1
 #define UNREGISTER_OTHER_ERROR 2
-// publish
-#define MAX_FILENAME_LEN 256
-#define MAX_NUMBER_OF_FILES 100000
 // list users
 #define LIST_USERS_SUCCESS 0
 #define LIST_USERS_NO_SUCH_USER 1
@@ -72,6 +70,15 @@
 #define DISCONNECT_USER_ERR_NOT_REGISTERED 1
 #define DISCONNECT_USER_ERR_NOT_CONNECTED 2
 #define DISCONNECT_USER_ERR_OTHER 3
+//publish_content
+#define MAX_FILENAME_LEN 256
+#define MAX_FILE_DESC_LEN 256
+#define MAX_NUMBER_OF_FILES 100000
+#define PUBLISH_CONTENT_SUCCESS 0
+#define PUBLISH_CONTENT_ERR_USER_NONEXISTENT 1
+#define PUBLISH_CONTENT_ERR_USER_NOTCONNECTED 2
+#define PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED 3
+#define PUBLISH_CONTENT_ERR_OTHER 4
 
 
 
@@ -201,3 +208,5 @@ void list_content(int socket);
 	SEND_CONTENT_LIST_ERR_FILENAME 		- could not send filename
 */
 int send_content_list(int socket, char** content_list, uint32_t num_of_files);
+
+int publish_content(int socket);

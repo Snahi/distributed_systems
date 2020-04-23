@@ -72,6 +72,8 @@ int main(int argc, char* argv[])
 	if (init_copy_client_socket_concurrency_mechanisms() != 0)
 		return -1;
 
+		
+
 	// init request thread
 	pthread_attr_t attr_req_thread;
 	if (init_request_thread_attr(&attr_req_thread) != 0)
@@ -87,6 +89,7 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 	
+	
 	// start waiting for requests
 	struct sockaddr_in client_addr;
 	int client_socket;
@@ -97,6 +100,7 @@ int main(int argc, char* argv[])
 		return -1;
 
 	struct req_thread_args args;
+
 	
     while (is_running)
     {
@@ -449,6 +453,8 @@ void identify_and_process_request(struct req_thread_args* p_args)
 		list_users(socket);
 	else if (strcmp(req_type, REQ_LIST_CONTENT) == 0)
 		list_content(socket);
+	else if (strcmp(req_type, REQ_PUBLISH) == 0)
+		publish_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
 
@@ -852,6 +858,29 @@ int read_username(int socket, char* username)
 	return total_read;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_file_name
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_file_name(int socket, char* file_name)
+{
+	int total_read = read_line(socket, file_name , MAX_FILENAME_LEN);
+	file_name[MAX_FILENAME_LEN] = '\0'; // just in case if the username was not finished properly
+	
+	return total_read;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// read_description
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int read_description(int socket, char* description)
+{
+	int total_read = read_line(socket, description, MAX_FILE_DESC_LEN);
+	description[MAX_FILE_DESC_LEN] = '\0'; // just in case if the username was not finished properly
+	
+	return total_read;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -865,4 +894,64 @@ int read_port(int socket, char* port)
 
 	return total_read;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// publish_content
+///////////////////////////////////////////////////////////////////////////////////////////////////
 	
+int publish_content(int socket){
+	
+	/*To get the error for is_connected*/
+	int is_connected_res;
+	/*To store the output of the error*/
+	uint8_t res= PUBLISH_CONTENT_SUCCESS;
+
+	char username[MAX_USERNAME_LEN + 1];
+	char file_name[MAX_FILENAME_LEN + 1];
+	char description[MAX_FILE_DESC_LEN+1];
+
+	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0 && read_description(socket,description)>0)
+	{
+		/*check if user is registered-> if the user is registerd, it means that 
+		there is also an existing directory for the given username*/
+		if(is_registered(username))
+		{
+			/*check if the user is connected*/
+			if(is_connected(username,&is_connected_res))
+			{
+				/*If the user is connected, then publish content in their directory*/
+				if(is_connected_res==IS_CONNECTED_SUCCESS)
+				{
+					int res_published = publish_content_dir(username,file_name,description);
+					
+					if (res_published == PUBLISH_DIR_SUCCESS)
+						res =PUBLISH_CONTENT_SUCCESS;
+					else
+						res = PUBLISH_CONTENT_ERR_OTHER;
+
+				}
+				else
+				{
+					res=PUBLISH_CONTENT_ERR_OTHER;
+				}
+				
+			}
+			else
+			{
+				res=PUBLISH_CONTENT_ERR_USER_NOTCONNECTED;
+			}	
+			
+		}
+		else
+		{
+			res=PUBLISH_CONTENT_ERR_USER_NONEXISTENT;
+		}
+
+	}
+	else{
+		res=PUBLISH_CONTENT_ERR_OTHER;
+	}
+
+	return res;
+}
+
