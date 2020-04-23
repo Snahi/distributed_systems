@@ -576,6 +576,28 @@ int delete_content_dir(char* name, char* file_name)
     /*Storage mutex*/
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
+        if(readdir(dir_path)!=NULL)
+        {
+            int rem=remove(dir_path);
+            if(rem==0){
+                res= DELETE_CONTENT_SUCCESS;
+            }
+            else
+            {
+                res=DELETE_CONTENT_ERR_OTHER;
+            }
+            
+        }
+        else
+        {
+           res=DELETE_CONTENT_ERR_FILE_NOTPUB; 
+        }
+
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK;
+            printf("ERROR get_user_files_list - could not unlock mutex\n");
+        }
 
     }
     else

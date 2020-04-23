@@ -969,7 +969,7 @@ int delete_published_content(int socket){
 	char file_name[MAX_FILENAME_LEN + 1];
 	char description[MAX_FILE_DESC_LEN+1];
 
-	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0 && read_description(socket,description)>0)
+	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0)
 	{
 		/*To check if the user is registered*/
 		if(is_registerd(username))
@@ -979,7 +979,7 @@ int delete_published_content(int socket){
 			{
 				if(is_connected_res==IS_CONNECTED_SUCCESS)
 				{
-
+					delete_content_dir(username, file_name);
 				}
 				else
 				{
@@ -1004,16 +1004,4 @@ int delete_published_content(int socket){
 
 }
 
-/*
-0 if successfully deleted
-1 user does not exist
-2 user is not connected
-3 file has not been published previously 
-4 in any other case 
 
-#define DELETE_PUBLISHED_CONT_SUCCESS 0
-#define DELETE_PUBLISHED_CONT_ERR_USER_NONEXISTENT 1
-#define DELETE_PUBLISHED_CONT_ERR_USER_NOTCON 2
-#define DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB 3
-#define DELETE_PUBLISHED_CONT_ERR_OTHER 4
-*/

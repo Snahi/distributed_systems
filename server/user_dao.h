@@ -64,6 +64,13 @@
 #define PUBLISH_DIR_ERR_FILE_NOTCREATED 2
 #define PUBLISH_DIR_ERR_MUTEX_LOCK 3
 #define PUBLISH_DIR_ERR_MUTEX_UNLOCK 4
+//delete published content
+#define DELETE_CONTENT_SUCCESS 0
+#define DELETE_CONTENT_ERR_FILE_NOTPUB 1
+#define DELETE_CONTENT_ERR_FILE 2
+#define DELETE_CONTENT_ERR_MUTEX_LOCK 3
+#define DELETE_CONTENT_ERR_MUTEX_UNLOCK 4
+#define DELETE_CONTENT_ERR_OTHER 5
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
@@ -158,3 +165,5 @@ int is_connected(char* username, int* p_err);
 int remove_connected_user(char*name);
 
 int publish_content_dir(char* name,char* file_name,char* descr );
+
+int delete_content_dir(char * name, char* file_name);
