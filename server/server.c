@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <ifaddrs.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,22 +172,25 @@ int process_obtain_port_result(int port)
 
 char* get_server_ip()
 {
-	char* p_res = NULL;
+	struct ifaddrs *ifap, *ifa;
+    struct sockaddr_in *sa;
+    char *addr = NULL;
 
-	char hostname[256];
-	int hostname_res = gethostname(hostname, sizeof(hostname));
-	if (hostname_res == 0)
-	{
-		struct hostent* p_hostent = gethostbyname(hostname);
-		if (p_hostent != NULL)
-			p_res = inet_ntoa(*((struct in_addr*) p_hostent->h_addr_list[0]));
-		else
-			perror("get_server_ip - could not obtain hostent");
-	}
-	else // error in gethostname
-		perror("get_server_ip - could not obtain hostname");
+    getifaddrs (&ifap);
+    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr && 										// address specified
+			ifa->ifa_addr->sa_family==AF_INET &&					// proper address family
+			strcmp(ifa->ifa_name, LOOPBACK_INTERFACE_NAME) != 0)	// no loopback
+		{
+            sa = (struct sockaddr_in *) ifa->ifa_addr;			// addr on non-loopback interface
+            addr = inet_ntoa(sa->sin_addr);						// addr parsed to string
+			break;												// one addr is enough
+        }
+    }
 
-	return p_res;
+    freeifaddrs(ifap);
+
+	return addr;
 }
 
 

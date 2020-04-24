@@ -13,6 +13,7 @@
 #define MAX_PORT_STR_SIZE strlen(MAX_PORT_STR)
 // ip address
 #define MAX_IP_ADDR_LEN 15
+#define LOOPBACK_INTERFACE_NAME "lo"
 // main socket
 #define REQUESTS_QUEUE_SIZE 10
 #define ERR_SOCKET_DESCRIPTOR 100
