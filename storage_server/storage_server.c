@@ -52,6 +52,12 @@
 #define ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX 3
 #define ADD_CONNECTED_USER_ERR_CREATE_FILE 4
 #define ADD_CONNECTED_USER_ERR_WRITE_TO_FILE 5
+// delete connected user
+#define DELETE_CONNECTED_USER_SUCCESS 0
+#define DELETE_CONNECTED_USER_ERR_LOCK_MUTEX 1
+#define DELETE_CONNECTED_USER_ERR_UNLOCK_MUTEX 2
+#define DELETE_CONNECTED_USER_ERR_NOT_CONNECTED 3
+#define DELETE_CONNECTED_USER_ERR_REMOVE_FILE 4
 
 
 
@@ -356,15 +362,50 @@ bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_r
 	return retval;
 }
 
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// delete connected user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool_t
-delete_connected_user_1_svc(char *username, int *result,  struct svc_req *rqstp)
+delete_connected_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
-	bool_t retval;
+	bool_t retval = 1;
+	*p_result = DELETE_CONNECTED_USER_SUCCESS;
 
-	/*
-	 * insert server code here
-	 */
+    char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
+    strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
+    strcat(user_file_path, username);
 
+	if (pthread_mutex_lock(&mutex_connected_users) == 0)
+	{
+		if (remove(user_file_path) != 0)
+		{
+			retval = 0;
+			if (errno == ENOENT)
+				*p_result = DELETE_CONNECTED_USER_ERR_NOT_CONNECTED;
+			else
+			{
+				perror("ERROR delete_connected_user - could not delete file:");
+				*p_result = DELETE_CONNECTED_USER_ERR_REMOVE_FILE;
+			}
+		}
+
+		if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+		{
+			printf("ERROR delete_connected_user - could not unlock the mutex\n");
+			*p_result = DELETE_CONNECTED_USER_ERR_UNLOCK_MUTEX;
+			retval = 0;
+		}
+	}
+	else
+	{
+		printf("ERROR delete_connected_user - could not lock the mutex\n");
+		*p_result = DELETE_CONNECTED_USER_ERR_LOCK_MUTEX;
+		retval = 0;
+	}
+	
 	return retval;
 }
 
