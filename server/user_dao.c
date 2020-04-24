@@ -575,9 +575,8 @@ int delete_content_dir(char* name, char* file_name)
     /*Storage mutex*/
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
-        struct dirent* file;
-        DIR* file_dir = opendir(dir_path);
-        if((file= readdir(file_dir))!=NULL)
+        /*checks if file exists*/
+        if(access(dir_path, F_OK)==-1)
         {
             int rem=remove(dir_path);
             if(rem==0){
