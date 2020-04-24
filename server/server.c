@@ -495,7 +495,7 @@ void register_user(int socket)
 	}
 	else	// no username
 	{
-		printf("ERROR register_user - no username\n");
+		printf("\nERROR register_user - no username\n");
 		result = REGISTER_OTHER_ERROR;
 	}
 	
@@ -566,7 +566,7 @@ void unregister(int socket)
 	}
 	else
 	{
-		printf("ERROR unregister - no username specified\n");
+		printf("\nERROR unregister - no username specified\n");
 		res = UNREGISTER_OTHER_ERROR;
 	}
 	
@@ -608,7 +608,10 @@ void connect_user(int socket, struct in_addr addr)
 			res = CONENCT_USER_ERR_NOT_REGISTERED;
 	}
 	else // username not specified
+	{
+		printf("\n");
 		res = CONNECT_USER_ERR_OTHER;
+	}
 	
 	if (send_msg(socket, (char*) &res, 1) != 0)
 		printf("ERROR connect - could not send response\n");
@@ -646,7 +649,10 @@ void disconnect_user(int socket){
 		
 	}
 	else
+	{
+		printf("\n");
 		res= DISCONNECT_USER_ERR_OTHER;
+	}
 	
 	/*sending back response to the client*/
 	if(send_msg(socket,(char*)&res,1)!=0)
@@ -690,7 +696,7 @@ void list_users(int socket)
 	}
 	else // no username specified
 	{
-		printf("ERROR list_users - no user specified");
+		printf("\nERROR list_users - no user specified");
 		res = LIST_USERS_OTHER_ERROR;
 	}
 
@@ -796,7 +802,7 @@ void list_content(int socket)
 	}
 	else // no requesting user's username specified
 	{
-		printf("ERROR list_content - no requesting user specified");
+		printf("\nERROR list_content - no requesting user specified");
 		res = LIST_CONTENT_OTHER_ERROR;
 	}
 
@@ -912,6 +918,7 @@ int publish_content(int socket){
 
 	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0 && read_description(socket,description)>0)
 	{
+		printf("%s\n", username);
 		/*check if user is registered-> if the user is registerd, it means that 
 		there is also an existing directory for the given username*/
 		if(is_registered(username))
@@ -949,6 +956,7 @@ int publish_content(int socket){
 
 	}
 	else{
+		printf("\n");
 		res=PUBLISH_CONTENT_ERR_OTHER;
 	}
 
