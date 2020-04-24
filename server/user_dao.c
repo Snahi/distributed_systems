@@ -130,69 +130,6 @@ int create_user(char* name)
     return CREATE_USER_SUCCESS;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// publish_content_dir
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-int publish_content_dir(char* name, char* file_name, char* descr){
-
-    /*variable to store error*/
-    int res= PUBLISH_DIR_SUCCESS;
-
-     /*File pointer to hold the reference to the file*/
-    FILE * fileptr;
-
-    /*directory path*/
-    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name)+ strlen(STORAGE_SLASH)+strlen(file_name) + 1];
-    strcpy(dir_path, STORAGE_DIR_PATH);
-    strcat(dir_path, name);
-    strcat(dir_path, STORAGE_SLASH);
-    strcat(dir_path,file_name);
-
-    
-    if(pthread_mutex_lock(&mutex_storage)==0)
-    {
-        /*checks if the file with that filename already exists*/
-        if(access(dir_path, F_OK)==-1)
-        {
-            /*Opens the file_name that was earlier created*/
-            fileptr=fopen(dir_path,"w");
-                
-            /*Checking if the file was created successfully*/
-            if(fileptr==NULL)
-            {
-                res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
-                
-            }
-            else
-            {
-                /*fputs(data, file_name);*/
-                fputs(descr,fileptr);
-                fclose(fileptr);
-            }
-        }
-        else
-        {
-            res=PUBLISH_DIR_ERR_NONEXISTANT;
-        } 
-        
-        // unlock the storage mutex
-        if (pthread_mutex_unlock(&mutex_storage) != 0)
-        {
-            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
-            printf("ERROR publish_directory - could not unlock mutex\n");
-        }
-
-    }
-    else
-    {
-        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
-    }
-
-    return res;
-}
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -555,5 +492,116 @@ int remove_connected_user(char*name){
         }
     }   
           
+    return res;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// publish_content_dir
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int publish_content_dir(char* name, char* file_name, char* descr)
+{
+
+    /*variable to store error*/
+    int res= PUBLISH_DIR_SUCCESS;
+
+     /*File pointer to hold the reference to the file*/
+    FILE * fileptr;
+
+    /*directory path*/
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name)+ strlen(STORAGE_SLASH)+strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, name);
+    strcat(dir_path, STORAGE_SLASH);
+    strcat(dir_path,file_name);
+
+    
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        /*checks if the file with that filename already exists*/
+        if(access(dir_path, F_OK)==-1)
+        {
+            /*Opens the file_name that was earlier created*/
+            fileptr=fopen(dir_path,"w");
+                
+            /*Checking if the file was created successfully*/
+            if(fileptr==NULL)
+            {
+                res=PUBLISH_DIR_ERR_FILE_NOTCREATED;
+                
+            }
+            else
+            {
+                /*fputs(data, file_name);*/
+                fputs(descr,fileptr);
+                fclose(fileptr);
+            }
+        }
+        else
+        {
+            res=PUBLISH_DIR_ERR_NONEXISTANT;
+        } 
+        
+        // unlock the storage mutex
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = PUBLISH_DIR_ERR_MUTEX_UNLOCK;
+            printf("ERROR publish_directory - could not unlock mutex\n");
+        }
+
+    }
+    else
+    {
+        res=PUBLISH_DIR_ERR_MUTEX_LOCK;
+    }
+
+    return res;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// delete_content_dir
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int delete_content_dir(char* name, char* file_name)
+{
+    int res= DELETE_CONTENT_SUCCESS;
+    /*directory path*/
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(name)+ strlen(STORAGE_SLASH)+strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, name);
+    strcat(dir_path, STORAGE_SLASH);
+    strcat(dir_path,file_name);
+
+    /*Storage mutex*/
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        /*checks if file exists*/
+        if(access(dir_path, F_OK)==-1)
+        {
+            int rem=remove(dir_path);
+            if(rem==0){
+                res=DELETE_CONTENT_SUCCESS;
+            }
+            else
+            {
+                res=DELETE_CONTENT_ERR_OTHER;
+            }
+            
+        }
+        else
+        {
+           res=DELETE_CONTENT_ERR_FILE_NOTPUB; 
+        }
+
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK;
+            printf("ERROR get_user_files_list - could not unlock mutex\n");
+        }
+    }
+    else
+    {
+        res=DELETE_CONTENT_ERR_MUTEX_LOCK;
+    }
     return res;
 }
