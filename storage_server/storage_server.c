@@ -1,6 +1,7 @@
 #include "storage.h"
 #include <errno.h>
-#include <sys/stat.h>	// for directories
+#include <sys/stat.h>	// for mkdir
+#include <dirent.h>		// for opendir
 
 
 
@@ -11,6 +12,8 @@
 #define FILE_SEPARATOR "/"
 #define STORAGE_DIR_PATH "storage/"
 #define CONNECTED_USERS_DIR_PATH "connected_users"
+// length limits
+#define MAX_USERNAME_LEN 256
 
 // methods results ////////////////////////////////////////////////////////////////////////////////
 // setup
@@ -27,6 +30,20 @@
 #define ADD_USER_SUCCESS 0
 #define ADD_USER_ERR_EXISTS 1
 #define ADD_USER_ERR_DIRECTORY 2
+#define ADD_USER_ERR_LOCK_MUTEX 3
+#define ADD_USER_ERR_UNLOCK_MUTEX 4
+// delete all user files
+#define DELETE_ALL_USER_FILES_SUCCESS 0
+#define DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER 1
+#define DELETE_ALL_USER_FILES_ERR_REMOVE 2
+#define DELETE_ALL_USER_FILES_ERR_CLOSE_DIR 3
+// delete user
+#define DELETE_USER_SUCCESS 0
+#define DELETE_USER_ERR_MUTEX_LOCK 1
+#define DELETE_USER_ERR_MUTEX_UNLOCK 2
+#define DELETE_USER_ERR_NOT_EXISTS 3
+#define DELETE_USER_ERR_REMOVE_FOLDER 4
+#define DELETE_USER_ERR_REMOVE_FILE 5
 
 
 
@@ -128,42 +145,145 @@ bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 
 bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
-	bool_t retval;
+	bool_t retval = 1;
 
 	 // create user directory path
     char dir_path[strlen(STORAGE_DIR_PATH) + strlen(username) + 1];
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, username);
 
-    // create user directory
-    if (mkdir(dir_path, S_IRWXU) != 0)
-    {          
-        if (errno == EEXIST)     
-        {
-			*p_result = ADD_USER_ERR_EXISTS;
-			return 0;  
+	if (pthread_mutex_lock(&mutex_storage) == 0)
+	{
+		// create user directory
+		if (mkdir(dir_path, S_IRWXU) != 0)
+		{          
+			if (errno == EEXIST)     
+			{
+				*p_result = ADD_USER_ERR_EXISTS;
+				retval = 0;  
+			}
+			else
+			{
+				perror("ERROR add_user - could not create a directory:");
+				*p_result = ADD_USER_ERR_DIRECTORY;  
+				retval = 0;
+			}          
 		}
-        else
-        {
-            perror("ERROR add_user - could not create a directory:");
-            *p_result = ADD_USER_ERR_DIRECTORY;  
-			return 0; 
-        }          
-    }
+
+		if (pthread_mutex_unlock(&mutex_storage) != 0)
+		{
+			printf("ERROR add_user - could not unlock the storage mutex\n");
+			*p_result = ADD_USER_ERR_UNLOCK_MUTEX;
+			retval = 0;
+		}
+	}
+	else
+	{
+		printf("ERROR add_user - could not lock the storage mutex\n");
+		*p_result = ADD_USER_ERR_LOCK_MUTEX;
+		retval = 0;
+	}
 
     *p_result = ADD_USER_SUCCESS;
 
 	return retval;
 }
 
-bool_t
-delete_user_1_svc(char *username, int *result,  struct svc_req *rqstp)
-{
-	bool_t retval;
 
-	/*
-	 * insert server code here
-	 */
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// delete user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int delete_all_user_files(char* user_dir_path, int file_path_len)
+{
+    int res = DELETE_ALL_USER_FILES_SUCCESS;
+
+    // delete user files
+    DIR* p_user_dir = opendir(user_dir_path);
+    if (p_user_dir != NULL)
+    {
+        struct dirent* p_next_file;
+        char filepath[file_path_len + 1];
+
+        while ((p_next_file = readdir(p_user_dir)) != NULL )
+        {
+            if (p_next_file->d_name[0] != '.') // ignore 'non files'
+            {
+                // build the path for each file in the folder
+                sprintf(filepath, "%s%s", user_dir_path, p_next_file->d_name);
+                if (remove(filepath) != 0)
+                {
+                    perror("ERROR delete_all_user_files - could not remove file:");
+                    return DELETE_ALL_USER_FILES_ERR_REMOVE;
+                }
+            }
+        }
+        
+        if (closedir(p_user_dir) != 0)
+        {
+            perror("ERROR delete_all_user_files - could not close dir:");
+            return DELETE_ALL_USER_FILES_ERR_CLOSE_DIR;
+        }
+    }
+    else // no such user
+        res = DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER;
+
+    return res;
+}
+
+
+
+bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
+{
+	bool_t retval = 1;
+
+    // create user directory path. + 1 because additional / to separate dir from file
+    int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1;
+    char dir_path[user_folder_path_len + 1]; 
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, username);
+    strcat(dir_path, FILE_SEPARATOR);
+
+    // acquire the storage mutex
+    if (pthread_mutex_lock(&mutex_storage) == 0)
+    {
+        // first delete all user's files
+		int file_path_len = user_folder_path_len + MAX_USERNAME_LEN; 
+        int del_files_res = delete_all_user_files(dir_path, file_path_len);
+        if (del_files_res == DELETE_ALL_USER_FILES_SUCCESS)
+        {
+            // remove user directory
+            if (remove(dir_path) != 0)
+				*p_result = DELETE_USER_ERR_REMOVE_FOLDER;
+        }
+        else if (del_files_res == DELETE_ALL_USER_FILES_ERR_NO_SUCH_USER)
+        {
+			*p_result = DELETE_USER_ERR_NOT_EXISTS;
+			retval = 0;
+		}
+        else
+        {
+			*p_result = DELETE_USER_ERR_REMOVE_FILE;
+			retval = 0;
+		}
+
+        // unlock the storage mutex
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            *p_result = DELETE_USER_ERR_MUTEX_UNLOCK;
+			retval = 0;
+            printf("ERROR delete_user - could not unlock mutex\n");
+        }
+    }
+    else // couldn't acquire the storage mutex
+    {
+        *p_result = DELETE_USER_ERR_MUTEX_LOCK;
+        printf("ERROR delete_user - could not lock mutex\n");
+		retval = 0;
+    }
+
+	*p_result = DELETE_USER_SUCCESS;
 
 	return retval;
 }
