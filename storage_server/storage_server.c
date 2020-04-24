@@ -23,6 +23,10 @@
 #define SHUTDOWN_SUCCESS 0
 #define SHUTDOWN_ERR_STORAGE_MUTEX 1
 #define SHUTDOWN_ERR_CONNECTED_USERS_MUTEX 2
+// add user
+#define ADD_USER_SUCCESS 0
+#define ADD_USER_ERR_EXISTS 1
+#define ADD_USER_ERR_DIRECTORY 2
 
 
 
@@ -116,14 +120,38 @@ bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 	return retval;
 }
 
-bool_t
-add_user_1_svc(char *username, int *result,  struct svc_req *rqstp)
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// add user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	bool_t retval;
 
-	/*
-	 * insert server code here
-	 */
+	 // create user directory path
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(username) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, username);
+
+    // create user directory
+    if (mkdir(dir_path, S_IRWXU) != 0)
+    {          
+        if (errno == EEXIST)     
+        {
+			*p_result = ADD_USER_ERR_EXISTS;
+			return 0;  
+		}
+        else
+        {
+            perror("ERROR add_user - could not create a directory:");
+            *p_result = ADD_USER_ERR_DIRECTORY;  
+			return 0; 
+        }          
+    }
+
+    *p_result = ADD_USER_SUCCESS;
 
 	return retval;
 }
