@@ -252,7 +252,7 @@ int get_user_files_list(char* username, char*** p_user_files, uint32_t* p_quanti
     char user_dir_path[user_folder_path_len + 1]; 
     strcpy(user_dir_path, STORAGE_DIR_PATH);
     strcat(user_dir_path, username);
-    strcat(user_dir_path, "/");
+    strcat(user_dir_path, STORAGE_SLASH);
 
 	// open user directory
     if (pthread_mutex_lock(&mutex_storage) == 0)
@@ -421,12 +421,12 @@ int is_connected(char* username, int* p_err)
 
 int get_connected_users(user*** p_users)
 {
-    int res = GET_CONNECTED_USERS_LIST_SUCCESS;
+    int res = GET_CONNECTED_USERS_SUCCESS;
 
     if (pthread_mutex_lock(&mutex_connected_users) != 0)
     {
         printf("ERROR get_connected_users - could not lock mutex\n");
-        res = GET_CONNECTED_USERS_LIST_ERR_LOCK_MUTEX;
+        res = GET_CONNECTED_USERS_ERR_LOCK_MUTEX;
     }
     else
     {
@@ -448,7 +448,7 @@ int get_connected_users(user*** p_users)
         if (pthread_mutex_unlock(&mutex_connected_users) != 0)
         {
             printf("ERROR get_connected_users = could not unlock mutex\n");
-            res = GET_CONNECTED_USERS_LIST_ERR_UNLOCK_MUTEX;
+            res = GET_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
         }
     }
     

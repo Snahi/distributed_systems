@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
 	int port = obtain_port(argc, argv);
 	port = process_obtain_port_result(port);
 
+	// obtain and print the local ip
 	char* addr = get_server_ip();
 	if (addr == NULL)
 	{
@@ -70,12 +71,11 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	// initialize mutex and condition variable for copying arguments for thread requests
 	if (init_copy_client_socket_concurrency_mechanisms() != 0)
 		return -1;
 
-		
-
-	// init request thread
+	// init request thread attributes
 	pthread_attr_t attr_req_thread;
 	if (init_request_thread_attr(&attr_req_thread) != 0)
 		return -1;
@@ -89,16 +89,15 @@ int main(int argc, char* argv[])
 		printf("ERROR main - could not initialize user dao. Code: %d\n", init_user_dao_res);
 		return -1;
 	}
-	
+		
+	// start detecting ctrl + c
+	if (!start_listening_sigint())
+		return -1;
 	
 	// start waiting for requests
 	struct sockaddr_in client_addr;
 	int client_socket;
     socklen_t clinet_addr_size = sizeof(struct sockaddr_in);
-	
-	// start detecting ctrl + c
-	if (!start_listening_sigint())
-		return -1;
 	
     while (is_running)
     {
@@ -450,7 +449,7 @@ void identify_and_process_request(int socket)
 		list_content(socket);
 	else if (strcmp(req_type, REQ_PUBLISH) == 0)
 		publish_content(socket);
-	else if (strcmp(req_type, REQ_DELETE_PUBLISH)==0)
+	else if (strcmp(req_type, REQ_DELETE_PUBLISH) == 0)
 		delete_published_content(socket);
 	else
 		printf("ERROR identify_and_process_request - no such request type\n");
@@ -471,7 +470,7 @@ void register_user(int socket)
 	uint8_t result = REGISTER_SUCCESS;
 	
 	char username[MAX_USERNAME_LEN + 1];
-	if (read_username(socket, username) > 0)	// username specified
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0)	// username specified
 	{
 		printf("%s\n", username);
 		if (is_username_valid(username))
@@ -484,11 +483,14 @@ void register_user(int socket)
 				case CREATE_USER_ERR_EXISTS : result = REGISTER_NON_UNIQUE_USERNAME; break;
 				default : 
 					result = REGISTER_OTHER_ERROR;
-					perror("ERROR register user other error");
+					printf("ERROR register user - unknown error in create_user\n");
 			}
 		}
 		else
+		{
+			printf("ERROR register_user - invalid username\n");
 			result = REGISTER_OTHER_ERROR;
+		}
 	}
 	else	// no username
 	{
@@ -532,23 +534,31 @@ void unregister(int socket)
 	uint8_t res = UNREGISTER_SUCCESS;
 
 	char username[MAX_USERNAME_LEN + 1];
-	if (read_username(socket, username) > 0)	// username specified
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0)	// username specified
 	{
 		printf("%s\n", username);
 
+		// if the user is connected then disconnect them first
 		int is_connected_err = -1;
 		if (is_connected(username, &is_connected_err))
 		{
 			if (is_connected_err != IS_CONNECTED_SUCCESS)
+			{
+				printf("ERROR unregister - unknown error occurred in is_connected\n");
 				res = UNREGISTER_OTHER_ERROR;
+			}
 			else
 			{
+				// disconnect the user
 				if (remove_connected_user(username) != REMOVE_CONNECTED_USERS_SUCCESS)
+				{
+					printf("ERROR unregister - unknown error in remove_connected_user\n");
 					res = UNREGISTER_OTHER_ERROR;
+				}
 			}
-			
 		}
 
+		// if no error occurred during a potenital disconnection, delte the user
 		if (res == UNREGISTER_SUCCESS)
 		{
 			int delete_res = delete_user(username);
@@ -557,11 +567,13 @@ void unregister(int socket)
 			{
 				case DELETE_USER_SUCCESS 		: res = UNREGISTER_SUCCESS; break;
 				case DELETE_USER_ERR_NOT_EXISTS : res = UNREGISTER_NO_SUCH_USER; break;
-				default							: res = UNREGISTER_OTHER_ERROR; 
+				default							: 
+					printf("ERROR unregister - unknown error in delete_user\n");
+					res = UNREGISTER_OTHER_ERROR; 
 			}
 		}
 	}
-	else
+	else // no username specified
 	{
 		printf("\nERROR unregister - no username specified\n");
 		res = UNREGISTER_OTHER_ERROR;
@@ -582,28 +594,33 @@ void connect_user(int socket)
 	uint8_t res = CONNECT_USER_SUCCESS;
 
 	char username[MAX_USERNAME_LEN + 1];
-	if (read_username(socket, username) > 0) // username specified
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // username specified
 	{
 		printf("%s\n", username);
 		if (is_registered(username))
 		{
 			char port[MAX_PORT_STR_SIZE + 1];
-			if (read_port(socket, port) > 0)
+			if (safe_socket_read(socket, port, MAX_PORT_STR_SIZE) > 0)
 			{
+				// obtain user's ip address
 				struct sockaddr_in addr;
 				socklen_t size = sizeof(addr);
 				bzero(&addr, size);
 				if (getpeername(socket, (struct sockaddr*) &addr, &size) == 0)
 				{
 					int add_res = add_connected_user(username, addr.sin_addr, port);
+
 					if (add_res == ADD_CONNECTED_USERS_SUCCESS)
 						res = CONNECT_USER_SUCCESS;
 					else if (add_res == ADD_CONNECTED_USERS_ALREADY_EXISTS)
 						res = CONNECT_USER_ERR_ALREADY_CONNECTED;
 					else
+					{
+						printf("ERROR connect_user - unknown error in add_connected_user\n");
 						res = CONNECT_USER_ERR_OTHER;
+					}
 				}
-				else
+				else // could not obtain ip address of the user
 				{
 					perror("ERROR connect_user - could not obtain the peer's address:");
 					res = CONNECT_USER_ERR_OTHER;
@@ -611,14 +628,17 @@ void connect_user(int socket)
 				
 			}
 			else // port not specified
+			{
+				printf("ERROR connect_user - no port specified\n");
 				res = CONNECT_USER_ERR_OTHER;
+			}
 		}
 		else
 			res = CONENCT_USER_ERR_NOT_REGISTERED;
 	}
 	else // username not specified
 	{
-		printf("\n");
+		printf("\nERROR connect_user - no username specified\n");
 		res = CONNECT_USER_ERR_OTHER;
 	}
 	
@@ -626,6 +646,11 @@ void connect_user(int socket)
 		printf("ERROR connect - could not send response\n");
 }
 
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// disconnect
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 void disconnect_user(int socket){
 
@@ -637,7 +662,7 @@ void disconnect_user(int socket){
 
 	char username[MAX_USERNAME_LEN+1];
 	/*read from socket*/
-	if(read_username(socket,username)>0)
+	if(safe_socket_read(socket,username, MAX_USERNAME_LEN)>0)
 	{
 		printf("%s\n", username);
 		if(is_registered(username))
@@ -647,7 +672,10 @@ void disconnect_user(int socket){
 				if (remove_connected_user(username) == REMOVE_CONNECTED_USERS_SUCCESS)
 					res=DISCONNECT_USER_SUCCESS;
 				else
+				{
+					printf("ERROR disconnect_user - unknown error in remove_connected_user\n");
 					res = DISCONNECT_USER_ERR_OTHER;
+				}
 			}
 			else{
 				res=DISCONNECT_USER_ERR_NOT_CONNECTED;
@@ -659,15 +687,16 @@ void disconnect_user(int socket){
 	}
 	else
 	{
-		printf("\n");
+		printf("\nERROR disconnect_user - no username specified\n");
 		res= DISCONNECT_USER_ERR_OTHER;
 	}
 	
 	/*sending back response to the client*/
 	if(send_msg(socket,(char*)&res,1)!=0)
-		printf("ERROR disconnect, unable to send response");
+		printf("ERROR disconnect_user - unable to send response");
 
 }
+
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -680,7 +709,7 @@ void list_users(int socket)
 	user** users_list = NULL;
 
 	char username[MAX_USERNAME_LEN + 1];
-	if (read_username(socket, username) > 0) // if user specified
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // if user specified
 	{
 		printf("%s\n", username);
 		if (is_registered(username))
@@ -690,12 +719,17 @@ void list_users(int socket)
 			{
 				if (is_connected_res == IS_CONNECTED_SUCCESS)
 				{
-					if (get_connected_users(&users_list) != GET_CONNECTED_USERS_LIST_SUCCESS)
+					if (get_connected_users(&users_list) != GET_CONNECTED_USERS_SUCCESS)
+					{
+						printf("ERROR list_users - unknown error is get_connected_users\n");
 						res = LIST_USERS_OTHER_ERROR;
+					}
 				}
 				else // mutex errors
+				{
+					printf("ERROR list_users - unknown error in is_connected\n");
 					res = LIST_USERS_OTHER_ERROR;
-				
+				}
 			}
 			else
 				res = LIST_USERS_DISCONNECTED;
@@ -776,7 +810,7 @@ void list_content(int socket)
 	uint32_t num_of_files = 0;
 
 	char username[MAX_USERNAME_LEN + 1];
-	if (read_username(socket, username) > 0) // if requesting user specified
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // if requesting user specified
 	{
 		printf("%s\n", username);
 		if (is_registered(username))
@@ -787,7 +821,7 @@ void list_content(int socket)
 				if (is_connected_res == IS_CONNECTED_SUCCESS)
 				{
 					char content_owner[MAX_USERNAME_LEN + 1];
-					if (read_username(socket, content_owner) > 0) // content owner specified
+					if (safe_socket_read(socket, content_owner, MAX_USERNAME_LEN) > 0) // content owner specified
 					{
 						int get_f_res = get_user_files_list(content_owner, &content_list, 
 							&num_of_files);
@@ -795,13 +829,22 @@ void list_content(int socket)
 						if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
 							res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
 						else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
+						{
+							printf("ERROR list_content - unknown error in get_user_files_list\n");
 							res = LIST_CONTENT_OTHER_ERROR;
+						}
 					}
 					else // no content owner specified
-						res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+					{
+						printf("ERROR list_content - no owner's username specified\n");
+						res = LIST_CONTENT_OTHER_ERROR;
+					}
 				}
 				else // mutex problem in is_connected
+				{
+					printf("ERROR list_content - unknown error in is_connected\n");
 					res = LIST_CONTENT_OTHER_ERROR;
+				}
 			}
 			else
 				res = LIST_CONTENT_DISCONNECTED;
@@ -811,7 +854,7 @@ void list_content(int socket)
 	}
 	else // no requesting user's username specified
 	{
-		printf("\nERROR list_content - no requesting user specified");
+		printf("\nERROR list_content - no requesting user specified\n");
 		res = LIST_CONTENT_OTHER_ERROR;
 	}
 
@@ -843,7 +886,7 @@ void list_content(int socket)
 int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 {
 	// send number of files
-	char str_num_of_files[7];	// max number of files is 100000
+	char str_num_of_files[20];
 	sprintf(str_num_of_files, "%d", num_of_files);
 
 	if (send_msg(socket, str_num_of_files, strlen(str_num_of_files) + 1) != 0)
@@ -853,62 +896,13 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 	for (uint32_t i = 0; i < num_of_files; i++)
 	{
 		if (send_msg(socket, content_list[i], strlen(content_list[i]) + 1) != 0)
-			return SEND_CONTENT_LIST_ERR_FILENAME;
+			return SEND_CONTENT_LIST_ERR_SEND;
 	}
 
 	return SEND_CONTENT_LIST_SUCCESS;
 }
 
 
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// read_user_name
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int read_username(int socket, char* username)
-{
-	int total_read = read_line(socket, username, MAX_USERNAME_LEN);
-	username[MAX_USERNAME_LEN] = '\0'; // just in case if the username was not finished properly
-	
-	return total_read;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// read_file_name
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int read_file_name(int socket, char* file_name)
-{
-	int total_read = read_line(socket, file_name , MAX_FILENAME_LEN);
-	file_name[MAX_FILENAME_LEN] = '\0'; // just in case if the username was not finished properly
-	
-	return total_read;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// read_description
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int read_description(int socket, char* description)
-{
-	int total_read = read_line(socket, description, MAX_FILE_DESC_LEN);
-	description[MAX_FILE_DESC_LEN] = '\0'; // just in case if the username was not finished properly
-	
-	return total_read;
-}
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// read_port
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-int read_port(int socket, char* port)
-{
-	int total_read = read_line(socket, port, MAX_PORT_STR_SIZE);
-	port[MAX_PORT_STR_SIZE] = '\0';
-
-	return total_read;
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // publish_content
@@ -923,9 +917,11 @@ int publish_content(int socket){
 
 	char username[MAX_USERNAME_LEN + 1];
 	char file_name[MAX_FILENAME_LEN + 1];
-	char description[MAX_FILE_DESC_LEN+1];
+	char description[MAX_FILE_DESC_LEN + 1];
 
-	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0 && read_description(socket,description)>0)
+	if(safe_socket_read(socket,username, MAX_USERNAME_LEN) > 0 && 
+		safe_socket_read(socket,file_name, MAX_FILENAME_LEN) > 0 && 
+		safe_socket_read(socket,description, MAX_FILE_DESC_LEN) >0)
 	{
 		printf("%s\n", username);
 		/*check if user is registered-> if the user is registerd, it means that 
@@ -943,14 +939,18 @@ int publish_content(int socket){
 					if (res_published == PUBLISH_DIR_SUCCESS)
 						res =PUBLISH_CONTENT_SUCCESS;
 					else
+					{
+						printf("ERROR publish_content - unknown error in publish_content_dir\n");
 						res = PUBLISH_CONTENT_ERR_OTHER;
+					}
 
 				}
 				else
 				{
+					printf("ERROR publish_content - unknown error in is_connected\n");
 					res=PUBLISH_CONTENT_ERR_OTHER;
 				}
-				
+	
 			}
 			else
 			{
@@ -965,7 +965,7 @@ int publish_content(int socket){
 
 	}
 	else{
-		printf("\n");
+		printf("\nERROR publish_content - not all parameters specified\n");
 		res=PUBLISH_CONTENT_ERR_OTHER;
 	}
 
@@ -973,6 +973,10 @@ int publish_content(int socket){
 }
 
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// delete published content
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 int delete_published_content(int socket){
 
@@ -986,7 +990,7 @@ int delete_published_content(int socket){
 	char username[MAX_USERNAME_LEN + 1];
 	char file_name[MAX_FILENAME_LEN + 1];
 
-	if(read_username(socket,username)>0 && read_file_name(socket,file_name)>0)
+	if(safe_socket_read(socket,username, MAX_USERNAME_LEN)>0 && safe_socket_read(socket,file_name, MAX_FILENAME_LEN)>0)
 	{
 		/*To check if the user is registered*/
 		if(is_registered(username))
@@ -996,16 +1000,31 @@ int delete_published_content(int socket){
 			{
 				if(is_connected_res==IS_CONNECTED_SUCCESS)
 				{
-					delete_content_dir(username, file_name);
+					int delete_res = delete_content_dir(username, file_name);
+					
+					if (delete_res != DELETE_CONTENT_SUCCESS)
+					{
+						if (delete_res == DELETE_CONTENT_ERR_FILE_NOTPUB)
+						{
+							res = DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB;
+						}
+						else
+						{
+							printf("ERROR delete_published_content - unknown error in delete_content_dir\n");
+							res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+						}
+						
+					}
 				}
 				else
 				{
-					res=PUBLISH_CONTENT_ERR_OTHER;
+					printf("ERROR delete_published_content - unknown error in is_connected\n");
+					res=DELETE_PUBLISHED_CONT_ERR_OTHER;
 				}
 			}
 			else
 			{
-				res=PUBLISH_CONTENT_ERR_USER_NOTCONNECTED;
+				res=DELETE_PUBLISHED_CONT_ERR_USER_NOTCON;
 			}
 			
 		}
@@ -1016,10 +1035,29 @@ int delete_published_content(int socket){
 	}
 	else
 	{
+		printf("ERROR delete_published_content - not all parameteres specified\n");
 		res=DELETE_PUBLISHED_CONT_ERR_OTHER;
 	}
-	return res;
 
+	return res;
 }
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// safe socket read
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+int safe_socket_read(int socket, char* read, int max_read_len)
+{
+	int total_read = read_line(socket, read, max_read_len);
+	read[max_read_len] = '\0'; // just in case if the string is not properly ended
+	
+	return total_read;
+}
+
+
+
+
 
 

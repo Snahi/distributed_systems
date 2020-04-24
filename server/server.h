@@ -59,7 +59,7 @@
 // send content list
 #define SEND_CONTENT_LIST_SUCCESS 0
 #define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
-#define SEND_CONTENT_LIST_ERR_FILENAME 2
+#define SEND_CONTENT_LIST_ERR_SEND 2
 // connect
 #define CONNECT_USER_SUCCESS 0
 #define CONENCT_USER_ERR_NOT_REGISTERED 1
@@ -167,11 +167,7 @@ void identify_and_process_request(int socket);
 
 void register_user(int socket);
 
-/*
-	Reads username from the socket and puts it's value into the address space pointed by username.
-	Returns number of characters read
-*/
-int read_username(int socket, char* username);
+int safe_socket_read(int socket, char* read, int max_read_len);
 
 /*
 	checks if username is valid.
@@ -184,8 +180,6 @@ void unregister(int socket);
 void connect_user(int socket);
 
 void disconnect_user(int socket);
-
-int read_port(int socket, char* port);
 
 void list_users(int socket);
 
