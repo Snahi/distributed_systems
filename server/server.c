@@ -98,20 +98,15 @@ int main(int argc, char* argv[])
 	// start detecting ctrl + c
 	if (!start_listening_sigint())
 		return -1;
-
-	struct req_thread_args args;
-
 	
     while (is_running)
     {
         // accept connection from a client
         client_socket = accept(server_socket, (struct sockaddr*) &client_addr, &clinet_addr_size);
-		args.socket = client_socket;
-		args.addr = client_addr.sin_addr;
 
 		if (client_socket >= 0)
 		{
-			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &args) != 0)
+			if (pthread_create(&t_request, &attr_req_thread, manage_request, (void*) &client_socket) != 0)
 				perror("ERROR main - could not create request thread");
 
 			if (wait_till_socket_copying_is_done() != 0)
@@ -401,7 +396,7 @@ int clean_up(int server_socket, pthread_attr_t* p_attr)
 
 void* manage_request(void* p_args)
 {
-	struct req_thread_args args;
+	int socket = 0;
 
 	// lock the main thread until the socket is copied
 	if (pthread_mutex_lock(&mutex_csd) != 0)
@@ -410,7 +405,7 @@ void* manage_request(void* p_args)
 		return NULL;
 	}
 
-	memcpy(&args, p_args, sizeof(args));
+	memcpy(&socket, p_args, sizeof(socket));
 	is_copied = 1;
 	
 	// notify that socket was copied
@@ -421,19 +416,15 @@ void* manage_request(void* p_args)
 		printf("ERROR manage_request - could not unlock mutex\n");
 
 	// process the request
-	identify_and_process_request(&args);
+	identify_and_process_request(socket);
 
 	pthread_exit(NULL);
 }
 
 
 
-void identify_and_process_request(struct req_thread_args* p_args)
-{
-	int socket = p_args->socket;
-	if (socket < 0)
-		return;
-	
+void identify_and_process_request(int socket)
+{	
 	char req_type[MAX_REQ_TYPE_LEN + 1];
 	read_line(socket, req_type, MAX_REQ_TYPE_LEN);
 	req_type[MAX_REQ_TYPE_LEN] = '\0'; // just in case if the request type is in wrong format
@@ -444,7 +435,7 @@ void identify_and_process_request(struct req_thread_args* p_args)
 	if (strcmp(req_type, REQ_REGISTER) == 0)
 		register_user(socket);
 	else if (strcmp(req_type, REQ_CONNECT) == 0)
-		connect_user(socket, p_args->addr);
+		connect_user(socket);
 	else if (strcmp(req_type, REQ_DISCONNECT)==0)
 		disconnect_user(socket);
 	else if (strcmp(req_type, REQ_UNREGISTER) == 0)
@@ -580,7 +571,7 @@ void unregister(int socket)
 // connect
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void connect_user(int socket, struct in_addr addr)
+void connect_user(int socket)
 {
 	uint8_t res = CONNECT_USER_SUCCESS;
 
@@ -593,13 +584,25 @@ void connect_user(int socket, struct in_addr addr)
 			char port[MAX_PORT_STR_SIZE + 1];
 			if (read_port(socket, port) > 0)
 			{
-				int add_res = add_connected_user(username, addr, port);
-				if (add_res == ADD_CONNECTED_USERS_SUCCESS)
-					res = CONNECT_USER_SUCCESS;
-				else if (add_res == ADD_CONNECTED_USERS_ALREADY_EXISTS)
-					res = CONNECT_USER_ERR_ALREADY_CONNECTED;
+				struct sockaddr_in addr;
+				socklen_t size = sizeof(addr);
+				bzero(&addr, size);
+				if (getpeername(socket, (struct sockaddr*) &addr, &size) == 0)
+				{
+					int add_res = add_connected_user(username, addr.sin_addr, port);
+					if (add_res == ADD_CONNECTED_USERS_SUCCESS)
+						res = CONNECT_USER_SUCCESS;
+					else if (add_res == ADD_CONNECTED_USERS_ALREADY_EXISTS)
+						res = CONNECT_USER_ERR_ALREADY_CONNECTED;
+					else
+						res = CONNECT_USER_ERR_OTHER;
+				}
 				else
+				{
+					perror("ERROR connect_user - could not obtain the peer's address:");
 					res = CONNECT_USER_ERR_OTHER;
+				}
+				
 			}
 			else // port not specified
 				res = CONNECT_USER_ERR_OTHER;

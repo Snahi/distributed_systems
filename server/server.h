@@ -82,13 +82,6 @@
 
 
 
-struct req_thread_args {
-	int socket;
-	struct in_addr addr;
-};
-
-
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // function declarations
@@ -162,7 +155,7 @@ void* manage_request(void* p_args);
 	If the request could be identified then a request specific function is called. If the request
 	could not be identified an approporiate message will be send back to the socket. 
 */
-void identify_and_process_request(struct req_thread_args* p_args);
+void identify_and_process_request(int socket);
 
 void register_user(int socket);
 
@@ -180,7 +173,7 @@ int is_username_valid(char* username);
 
 void unregister(int socket);
 
-void connect_user(int socket, struct in_addr);
+void connect_user(int socket);
 
 void disconnect_user(int socket);
 
