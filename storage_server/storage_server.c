@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <sys/stat.h>	// for mkdir
 #include <dirent.h>		// for opendir
+#include <unistd.h>		// for access
 
 
 
@@ -47,9 +48,10 @@
 // add connected user
 #define ADD_CONNECTED_USER_SUCCESS 0
 #define ADD_CONNECTED_USER_ERR_EXISTS 1
-#define ADD_CONNECTED_USER_ERR_DIRECTORY 2
-#define ADD_CONNECTED_USER_ERR_LOCK_MUTEX 3
-#define ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX 4
+#define ADD_CONNECTED_USER_ERR_LOCK_MUTEX 2
+#define ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX 3
+#define ADD_CONNECTED_USER_ERR_CREATE_FILE 4
+#define ADD_CONNECTED_USER_ERR_WRITE_TO_FILE 5
 
 
 
@@ -152,6 +154,7 @@ bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	bool_t retval = 1;
+	*p_result = ADD_USER_SUCCESS;
 
 	// create user directory path
     char dir_path[strlen(STORAGE_DIR_PATH) + strlen(username) + 1];
@@ -189,8 +192,6 @@ bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 		*p_result = ADD_USER_ERR_LOCK_MUTEX;
 		retval = 0;
 	}
-
-    *p_result = ADD_USER_SUCCESS;
 
 	return retval;
 }
@@ -243,6 +244,7 @@ int delete_all_user_files(char* user_dir_path, int file_path_len)
 bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	bool_t retval = 1;
+	*p_result = DELETE_USER_SUCCESS;
 
     // create user directory path. + 1 because additional / to separate dir from file
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1;
@@ -289,8 +291,6 @@ bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 		retval = 0;
     }
 
-	*p_result = DELETE_USER_SUCCESS;
-
 	return retval;
 }
 
@@ -300,32 +300,43 @@ bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 // add connected user
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool_t add_connected_user_1_svc(char *username, char *in_addr, char *port, int *p_result,  
+bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_result,  
 	struct svc_req *rqstp)
 {
 	bool_t retval = 1;
+	*p_result = ADD_CONNECTED_USER_SUCCESS;
 
 	// create connected user directory path
-    char dir_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
-    strcpy(dir_path, CONNECTED_USERS_DIR_PATH);
-    strcat(dir_path, username);
+    char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
+    strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
+    strcat(user_file_path, username);
 
 	if (pthread_mutex_lock(&mutex_connected_users) == 0)
 	{
-		// create user directory
-		if (mkdir(dir_path, S_IRWXU) != 0)
-		{          
-			if (errno == EEXIST)     
+		// check if is connected
+		if(access(user_file_path, F_OK) == -1 )	// is not connected
+		{
+			FILE* user_file = fopen(user_file_path, "w");
+			if (user_file != NULL)
 			{
-				*p_result = ADD_CONNECTED_USER_ERR_EXISTS;
-				retval = 0;  
+				if (fprintf(user_file, "%s\n%s", addr, port) <= 0) // nothing was written
+				{
+					printf("ERROR add_connected_user - could not wirte to the file\n");
+					*p_result = ADD_CONNECTED_USER_ERR_WRITE_TO_FILE;
+					retval = 0;
+				}
 			}
 			else
 			{
-				perror("ERROR add_connected_user - could not create a directory:");
-				*p_result = ADD_CONNECTED_USER_ERR_DIRECTORY;  
+				perror("ERROR add_connected_user - could not create a file:");
+				*p_result = ADD_CONNECTED_USER_ERR_CREATE_FILE;
 				retval = 0;
-			}          
+			}
+		} 
+		else // is already connected
+		{
+			*p_result = ADD_CONNECTED_USER_ERR_EXISTS;
+			retval = 0;
 		}
 
 		if (pthread_mutex_unlock(&mutex_connected_users) != 0)
@@ -341,8 +352,6 @@ bool_t add_connected_user_1_svc(char *username, char *in_addr, char *port, int *
 		*p_result = ADD_CONNECTED_USER_ERR_LOCK_MUTEX;
 		retval = 0;
 	}
-
-    *p_result = ADD_CONNECTED_USER_SUCCESS;
 
 	return retval;
 }
