@@ -44,6 +44,12 @@
 #define DELETE_USER_ERR_NOT_EXISTS 3
 #define DELETE_USER_ERR_REMOVE_FOLDER 4
 #define DELETE_USER_ERR_REMOVE_FILE 5
+// add connected user
+#define ADD_CONNECTED_USER_SUCCESS 0
+#define ADD_CONNECTED_USER_ERR_EXISTS 1
+#define ADD_CONNECTED_USER_ERR_DIRECTORY 2
+#define ADD_CONNECTED_USER_ERR_LOCK_MUTEX 3
+#define ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX 4
 
 
 
@@ -147,7 +153,7 @@ bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	bool_t retval = 1;
 
-	 // create user directory path
+	// create user directory path
     char dir_path[strlen(STORAGE_DIR_PATH) + strlen(username) + 1];
     strcpy(dir_path, STORAGE_DIR_PATH);
     strcat(dir_path, username);
@@ -288,14 +294,55 @@ bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 	return retval;
 }
 
-bool_t
-add_connected_user_1_svc(char *username, char *in_addr, char *port, int *result,  struct svc_req *rqstp)
-{
-	bool_t retval;
 
-	/*
-	 * insert server code here
-	 */
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// add connected user
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool_t add_connected_user_1_svc(char *username, char *in_addr, char *port, int *p_result,  
+	struct svc_req *rqstp)
+{
+	bool_t retval = 1;
+
+	// create connected user directory path
+    char dir_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
+    strcpy(dir_path, CONNECTED_USERS_DIR_PATH);
+    strcat(dir_path, username);
+
+	if (pthread_mutex_lock(&mutex_connected_users) == 0)
+	{
+		// create user directory
+		if (mkdir(dir_path, S_IRWXU) != 0)
+		{          
+			if (errno == EEXIST)     
+			{
+				*p_result = ADD_CONNECTED_USER_ERR_EXISTS;
+				retval = 0;  
+			}
+			else
+			{
+				perror("ERROR add_connected_user - could not create a directory:");
+				*p_result = ADD_CONNECTED_USER_ERR_DIRECTORY;  
+				retval = 0;
+			}          
+		}
+
+		if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+		{
+			printf("ERROR add_connected_user - could not unlock the mutex\n");
+			*p_result = ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX;
+			retval = 0;
+		}
+	}
+	else
+	{
+		printf("ERROR add_connected_user - could not lock the mutex\n");
+		*p_result = ADD_CONNECTED_USER_ERR_LOCK_MUTEX;
+		retval = 0;
+	}
+
+    *p_result = ADD_CONNECTED_USER_SUCCESS;
 
 	return retval;
 }
