@@ -700,7 +700,7 @@ class client implements Runnable {
 				System.out.println("c> LIST_CONTENT OK");
 				while (nfiles!=0){
 					String aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
+					System.out.println("\t"+aux);
 					nfiles--;
 				}
 				break;
