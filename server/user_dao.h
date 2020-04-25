@@ -47,9 +47,9 @@
 #define ADD_CONNECTED_USER_MUTEX_LOCK_ERROR 3
 #define ADD_CONNECTED_USER_MUTEX_UNLOCK_ERROR 4
 // get connected users lis
-#define GET_CONNECTED_USERS_LIST_SUCCESS 0
-#define GET_CONNECTED_USERS_LIST_ERR_LOCK_MUTEX 1
-#define GET_CONNECTED_USERS_LIST_ERR_UNLOCK_MUTEX 2
+#define GET_CONNECTED_USERS_SUCCESS 0
+#define GET_CONNECTED_USERS_ERR_LOCK_MUTEX 1
+#define GET_CONNECTED_USERS_ERR_UNLOCK_MUTEX 2
 // is connected
 #define IS_CONNECTED_SUCCESS 0
 #define IS_CONNECTED_ERR_LOCK_MUTEX 1
@@ -64,6 +64,13 @@
 #define PUBLISH_DIR_ERR_FILE_NOTCREATED 2
 #define PUBLISH_DIR_ERR_MUTEX_LOCK 3
 #define PUBLISH_DIR_ERR_MUTEX_UNLOCK 4
+//delete published content
+#define DELETE_CONTENT_SUCCESS 0
+#define DELETE_CONTENT_ERR_FILE_NOTPUB 1
+#define DELETE_CONTENT_ERR_FILE 2
+#define DELETE_CONTENT_ERR_MUTEX_LOCK 3
+#define DELETE_CONTENT_ERR_MUTEX_UNLOCK 4
+#define DELETE_CONTENT_ERR_OTHER 5
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // structs
@@ -158,3 +165,5 @@ int is_connected(char* username, int* p_err);
 int remove_connected_user(char*name);
 
 int publish_content_dir(char* name,char* file_name,char* descr );
+
+int delete_content_dir(char * name, char* file_name);
