@@ -32,7 +32,7 @@ class client implements Runnable {
     //Store the name of the current user
     private static String username = "";  
     //Variable used to control the execution of the thread
-    private static Boolean operating_thread = true; 
+    private static Boolean operating_thread = false; 
 	
 
 	/******************* CONSTRUCTOR (For the thread) *******************/
@@ -302,10 +302,10 @@ class client implements Runnable {
 					rc=0;
                     System.out.println("c> CONNECT OK");
 		    		//Set the variable of the thread operating to true
-                    operating_thread = true; 
-					new Thread(new client(server_Socket)).start();
+					operating_thread = true;
 					connect = true; 
 					username = user; 
+					new Thread(new client(server_Socket)).start();
                     break;
 					
 					case 1:
@@ -543,7 +543,7 @@ class client implements Runnable {
 
 				case 3: //FILE ALREADY PUBLISH
 				rc=3;
-				System.out.println("c> DELETE FAIL, CONTENT ALREADY PUBLISHED");
+				System.out.println("c> DELETE FAIL, CONTENT NOT PUBLISHED");
 				break;
 
 				case 4: //ANY OTHER CASE OR ERROR
@@ -701,10 +701,6 @@ class client implements Runnable {
 				while (nfiles!=0){
 					String aux = readbytes(inFromServer);
 					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.println("\t"+aux);
 					nfiles--;
 				}
 				break;
@@ -933,6 +929,8 @@ class client implements Runnable {
                     			else if (line[0].equals("QUIT")){
 						if (line.length == 1) {
 							exit = true;
+							//SALIDA DEL THREAD
+							operating_thread=false;
 						} else {
 							System.out.println("Syntax error. Use: QUIT");
 						}
