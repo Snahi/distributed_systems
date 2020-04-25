@@ -691,7 +691,7 @@ class client implements Runnable {
 			byte response = inFromServer.readByte();
 
 			//Switch for the different returning messages from the server
-			switch (response) {
+			switch (response) { 
 				case 0: //SUCCESS
 				rc=0;
 				//String sfiles = inFromServer.readLine();
