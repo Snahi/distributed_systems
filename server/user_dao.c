@@ -576,7 +576,7 @@ int delete_content_dir(char* name, char* file_name)
     if(pthread_mutex_lock(&mutex_storage)==0)
     {
         /*checks if file exists*/
-        if(access(dir_path, F_OK)==-1)
+        if(access(dir_path, F_OK)==0)
         {
             int rem=remove(dir_path);
             if(rem==0){
