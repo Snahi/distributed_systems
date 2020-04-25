@@ -104,9 +104,6 @@
 #define DELETE_PUBLISHED_CONT_ERR_USER_NOTCON 2
 #define DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB 3
 #define DELETE_PUBLISHED_CONT_ERR_OTHER 4
-// get files
-#define GET_FILES_SUCCESS 0
-
 
 
 
@@ -206,14 +203,6 @@ void list_users(int socket);
 int send_users_list(int socket, user** users_list);
 
 void list_content(int socket);
-/*
-	Sends list of content (names of files) through the socket.
-	Returns:
-	SEND_CONTENT_LIST_SUCCESS 			- success
-	SEND_CONTENT_LIST_ERR_NUM_OF_FILES 	- could not send number of files
-	SEND_CONTENT_LIST_ERR_FILENAME 		- could not send filename
-*/
-int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
 int publish_content(int socket);
 

@@ -1,8 +1,12 @@
-struct file {
-	string name<>;
+struct files_list {
+	string file<>;
+	files_list* p_next;
 };
 
-typedef file files_vector<>;
+struct get_files_res {
+	int res;
+	files_list files;
+};
 
 struct user {
 	string username<>;
@@ -23,6 +27,8 @@ program STORAGE {
  		users_vector get_connected_users() = 7;
 		int add_file(string username, string file_name, string description) = 8;
 		int delete_file(string username, string file_name) = 9;
-		files_vector get_files(string username, int* p_err) = 10;
+		get_files_res get_files(string username) = 10;
+		int is_registered(string username) = 11;
+		int is_connected(string username) = 12;
 	} = 1;
 } = 0x20000000;

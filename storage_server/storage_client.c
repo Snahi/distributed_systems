@@ -49,38 +49,38 @@ CLIENT* p_client;
 void storage_1(char *host)
 {
 	CLIENT *clnt;
-	enum clnt_stat retval_1;
-	int result_1;
-	enum clnt_stat retval_2;
-	int result_2;
-	enum clnt_stat retval_3;
-	int result_3;
-	char *add_user_1_username;
-	enum clnt_stat retval_4;
-	int result_4;
-	char *delete_user_1_username;
-	enum clnt_stat retval_5;
-	int result_5;
-	char *add_connected_user_1_username;
-	char *add_connected_user_1_in_addr;
-	char *add_connected_user_1_port;
-	enum clnt_stat retval_6;
-	int result_6;
-	char *delete_connected_user_1_username;
-	enum clnt_stat retval_7;
-	users_vector result_7;
-	enum clnt_stat retval_8;
-	int result_8;
-	char *add_file_1_username;
-	char *add_file_1_file_name;
-	char *add_file_1_description;
-	enum clnt_stat retval_9;
-	int result_9;
-	char *delete_file_1_username;
-	char *delete_file_1_file_name;
-	enum clnt_stat retval_10;
-	files_vector result_10;
-	char *get_files_1_username;
+	// enum clnt_stat retval_1;
+	// int result_1;
+	// enum clnt_stat retval_2;
+	// int result_2;
+	// enum clnt_stat retval_3;
+	// int result_3;
+	// char *add_user_1_username;
+	// enum clnt_stat retval_4;
+	// int result_4;
+	// char *delete_user_1_username;
+	// enum clnt_stat retval_5;
+	// int result_5;
+	// // char *add_connected_user_1_username;
+	// // char *add_connected_user_1_in_addr;
+	// // char *add_connected_user_1_port;
+	// enum clnt_stat retval_6;
+	// int result_6;
+	// char *delete_connected_user_1_username;
+	// enum clnt_stat retval_7;
+	// users_vector result_7;
+	// enum clnt_stat retval_8;
+	// int result_8;
+	// char *add_file_1_username;
+	// char *add_file_1_file_name;
+	// char *add_file_1_description;
+	// enum clnt_stat retval_9;
+	// int result_9;
+	// char *delete_file_1_username;
+	// char *delete_file_1_file_name;
+	// enum clnt_stat retval_10;
+	// //files_vector result_10;
+	// char *get_files_1_username;
 
 #ifndef	DEBUG
 	clnt = clnt_create (host, STORAGE, STORAGE_VER, "udp");
@@ -930,82 +930,38 @@ int send_users_list(int socket, user** users_list)
 // list_content
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void list_content(int socket)
+uint8_t assure_requester_correctness_for_list_content(int socket)
 {
-	uint8_t res = LIST_CONTENT_SUCCESS;
-	char** content_list = NULL;
-	uint32_t num_of_files = 0;
-
-	// char username[MAX_USERNAME_LEN + 1];
-	// if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // if requesting user specified
-	// {
-	// 	printf("%s\n", username);
-	// 	if (is_registered(username))
-	// 	{
-	// 		int is_connected_res;
-	// 		if (is_connected(username, &is_connected_res))
-	// 		{
-	// 			if (is_connected_res == IS_CONNECTED_SUCCESS)
-	// 			{
-	// 				char content_owner[MAX_USERNAME_LEN + 1];
-	// 				if (safe_socket_read(socket, content_owner, MAX_USERNAME_LEN) > 0) // content owner specified
-	// 				{
-	// 					int get_f_res = get_user_files_list(content_owner, &content_list, 
-	// 						&num_of_files);
-
-	// 					if (get_f_res == GET_USER_FILES_LIST_ERR_NO_SUCH_USER)
-	// 						res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
-	// 					else if (get_f_res != GET_USER_FILES_LIST_SUCCESS)
-	// 					{
-	// 						printf("ERROR list_content - unknown error in get_user_files_list\n");
-	// 						res = LIST_CONTENT_OTHER_ERROR;
-	// 					}
-	// 				}
-	// 				else // no content owner specified
-	// 				{
-	// 					printf("ERROR list_content - no owner's username specified\n");
-	// 					res = LIST_CONTENT_OTHER_ERROR;
-	// 				}
-	// 			}
-	// 			else // mutex problem in is_connected
-	// 			{
-	// 				printf("ERROR list_content - unknown error in is_connected\n");
-	// 				res = LIST_CONTENT_OTHER_ERROR;
-	// 			}
-	// 		}
-	// 		else
-	// 			res = LIST_CONTENT_DISCONNECTED;
-	// 	}
-	// 	else // requesting user not registered
-	// 		res = LIST_CONTENT_NOT_REGISTERED;
-	// }
-	// else // no requesting user's username specified
-	// {
-	// 	printf("\nERROR list_content - no requesting user specified\n");
-	// 	res = LIST_CONTENT_OTHER_ERROR;
-	// }
-
-	// send result
-
-	if (send_msg(socket, (char*) &res, 1) == 0)
+	char username[MAX_USERNAME_LEN + 1];
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) <= 0) // if requesting user specified
 	{
-		if (res == LIST_CONTENT_SUCCESS)
-		{
-			int send_res = send_content_list(socket, content_list, num_of_files);
-
-			if (send_res != SEND_CONTENT_LIST_SUCCESS)
-				printf("ERROR list_content - could not send content. Code: %d\n", send_res);
-		}
+		printf("\nERROR list_content - no requesting user specified\n");
+		return LIST_CONTENT_OTHER_ERROR;
 	}
-	else
-		printf("ERROR list_content - could not send response\n");
 
-	if (content_list != NULL)
+	printf("%s\n", username);
+
+	int is_registered_res = 0;
+	if (is_registered_1(username, &is_registered_res, p_client) != RPC_SUCCESS)
 	{
-		for (uint32_t i = 0; i < num_of_files; i++)
-			free(content_list[i]);
-		free(content_list);
+		clnt_perror(p_client, "ERROR list_content - rpc error is_registered:");
+		return LIST_CONTENT_OTHER_ERROR;
 	}
+
+	if (!is_registered_res)
+		return LIST_CONTENT_NOT_REGISTERED;
+
+	int is_connected_res = 0;
+	if (is_connected_1(username, &is_connected_res, p_client) != RPC_SUCCESS)
+	{
+		clnt_perror(p_client, "ERROR list_content - rpc error is_connected");
+		return LIST_CONTENT_OTHER_ERROR;
+	}
+	
+	if (!is_connected_res)
+		return LIST_CONTENT_DISCONNECTED;
+
+	return LIST_CONTENT_SUCCESS;
 }
 
 
@@ -1022,11 +978,67 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 	// send users' data
 	for (uint32_t i = 0; i < num_of_files; i++)
 	{
+		printf("file: %s\n", content_list[i]);
 		if (send_msg(socket, content_list[i], strlen(content_list[i]) + 1) != 0)
 			return SEND_CONTENT_LIST_ERR_SEND;
 	}
 
 	return SEND_CONTENT_LIST_SUCCESS;
+}
+
+
+
+void send_list_content_result(int socket, uint8_t res, char** files, int num_of_files)
+{
+	if (send_msg(socket, (char*) &res, 1) == 0)
+	{
+		if (res == LIST_CONTENT_SUCCESS)
+		{
+			int send_res = send_content_list(socket, files, num_of_files);
+
+			if (send_res != SEND_CONTENT_LIST_SUCCESS)
+				printf("ERROR list_content - could not send content. Code: %d\n", send_res);
+		}
+	}
+	else
+		printf("ERROR list_content - could not send response\n");
+}
+
+
+
+void list_content(int socket)
+{
+	get_files_res files_res;
+	int res = assure_requester_correctness_for_list_content(socket);
+	if (res == LIST_CONTENT_SUCCESS)
+	{
+		char content_owner[MAX_USERNAME_LEN + 1];
+		if (safe_socket_read(socket, content_owner, MAX_USERNAME_LEN) > 0) // content owner specified
+		{
+			if (get_files_1(content_owner, &files_res, p_client) != RPC_SUCCESS)
+			{
+				clnt_perror(p_client, "ERROR list_content - rpc error get files\n");
+				res = LIST_CONTENT_OTHER_ERROR;
+			}
+		}
+		else // no content owner specified
+		{
+			printf("ERROR list_content - no owner's username specified\n");
+			res = LIST_CONTENT_OTHER_ERROR;
+		}
+	}
+
+	printf("res: %d\n", files_res.res);
+	// char** files = files_res.string_vector_val;
+	// int n_of_files = files_res.string_vector_len;
+	// send_list_content_result(socket, res, files, n_of_files);
+
+	// if (files != NULL)
+	// {
+	// 	for (uint32_t i = 0; i < n_of_files; i++)
+	// 		free(files[i]);
+	// 	free(files);
+	// }
 }
 
 

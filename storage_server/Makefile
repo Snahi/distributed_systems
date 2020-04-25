@@ -13,7 +13,7 @@ SOURCES_SVC.h =
 SOURCES.x = storage.x
 
 TARGETS_SVC.c = storage_svc.c storage_server.c storage_xdr.c 
-TARGETS_CLNT.c = storage_clnt.c storage_client.c storage_xdr.c lines.c 
+TARGETS_CLNT.c = storage_clnt.c storage_client.c storage_xdr.c lines.c
 TARGETS = storage.h storage_xdr.c storage_clnt.c storage_svc.c storage_client.c storage_server.c
 
 OBJECTS_CLNT = $(SOURCES_CLNT.c:%.c=%.o) $(TARGETS_CLNT.c:%.c=%.o)

@@ -99,12 +99,28 @@ delete_file_1(char *username, char *file_name, int *clnt_res,  CLIENT *clnt)
 }
 
 enum clnt_stat 
-get_files_1(char *username, int *p_err, files_vector *clnt_res,  CLIENT *clnt)
+get_files_1(char *username, get_files_res *clnt_res,  CLIENT *clnt)
 {
-	get_files_1_argument arg;
-	arg.username = username;
-	arg.p_err = p_err;
-	return (clnt_call (clnt, get_files, (xdrproc_t) xdr_get_files_1_argument, (caddr_t) &arg,
-		(xdrproc_t) xdr_files_vector, (caddr_t) clnt_res,
+	return (clnt_call(clnt, get_files,
+		(xdrproc_t) xdr_wrapstring, (caddr_t) &username,
+		(xdrproc_t) xdr_get_files_res, (caddr_t) clnt_res,
+		TIMEOUT));
+}
+
+enum clnt_stat 
+is_registered_1(char *username, int *clnt_res,  CLIENT *clnt)
+{
+	return (clnt_call(clnt, is_registered,
+		(xdrproc_t) xdr_wrapstring, (caddr_t) &username,
+		(xdrproc_t) xdr_int, (caddr_t) clnt_res,
+		TIMEOUT));
+}
+
+enum clnt_stat 
+is_connected_1(char *username, int *clnt_res,  CLIENT *clnt)
+{
+	return (clnt_call(clnt, is_connected,
+		(xdrproc_t) xdr_wrapstring, (caddr_t) &username,
+		(xdrproc_t) xdr_int, (caddr_t) clnt_res,
 		TIMEOUT));
 }

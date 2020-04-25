@@ -78,6 +78,14 @@
 #define ADD_FILE_ERR_UNLOCK_MUTEX 4
 #define ADD_FILE_ERR_NO_SUCH_USER 5
 #define ADD_FILE_ERR_DISCONNECTED 6
+// get files
+#define GET_FILES_SUCCESS 0
+#define GET_FILES_ERR_LOCK_MUTEX 1
+#define GET_FILES_ERR_UNLOCK_MUTEX 2
+#define GET_FILES_ERR_NO_SUCH_USER 3
+#define GET_FILES_ERR_CLOSE_DIR 4
+#define GET_FILES_ERR_OPEN_DIR 6
+
 
 
 
@@ -99,7 +107,7 @@ pthread_mutex_t mutex_connected_users;
 // is_registered
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-int is_registered(char* username)
+int is_registered_local(char* username)
 {
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username);
     char dir_path[user_folder_path_len + 1]; 
@@ -117,10 +125,11 @@ int is_registered(char* username)
 // is_connected
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-int is_connected(char* username)
+int is_connected_local(char* username)
 {
 	char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
     strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
+	strcat(user_file_path, FILE_SEPARATOR);
     strcat(user_file_path, username);
 
 	if (access(user_file_path, F_OK) == 0) // is connected
@@ -307,7 +316,7 @@ bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 
 	// disconnect if is connected
 	int disconnect_result = DELETE_CONNECTED_USER_SUCCESS;
-	if (is_connected(username))
+	if (is_connected_local(username))
 		delete_connected_user_1_svc(username, &disconnect_result, NULL);
 
 	if (disconnect_result == DELETE_CONNECTED_USER_SUCCESS)
@@ -365,9 +374,10 @@ bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_r
 	// create connected user directory path
     char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
     strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
+	strcat(user_file_path, FILE_SEPARATOR);
     strcat(user_file_path, username);
 
-	if (is_registered(username))
+	if (is_registered_local(username))
 	{
 		if (pthread_mutex_lock(&mutex_connected_users) == 0)
 		{
@@ -430,7 +440,7 @@ bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_re
     strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
     strcat(user_file_path, username);
 
-	if (is_registered(username))
+	if (is_registered_local(username))
 	{
 		if (pthread_mutex_lock(&mutex_connected_users) == 0)
 		{
@@ -613,9 +623,9 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
  	/*variable to store error*/
     int res= ADD_FILE_SUCCESS;
 
-	if (is_registered(username))
+	if (is_registered_local(username))
 	{
-		if (is_connected(username))
+		if (is_connected_local(username))
 		{
 			/*File pointer to hold the reference to the file*/
 			FILE * fileptr;
@@ -687,65 +697,145 @@ delete_file_1_svc(char *username, char *file_name, int *result,  struct svc_req 
 	return retval;
 }
 
-bool_t
-get_files_1_svc(char *username, int *p_err, files_vector *result,  struct svc_req *rqstp)
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// get files
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint32_t count_user_files(DIR* p_directory)
+{
+    uint32_t quantity = 0;
+    struct dirent* p_next_file;
+
+    while ((p_next_file = readdir(p_directory)) != NULL)
+    {
+        if (p_next_file->d_name[0] != '.') // skip files which are not part of the storage
+            ++quantity;
+    }
+
+    rewinddir(p_directory);
+
+    return quantity;
+}
+
+
+
+int get_files_list_from_dir(DIR* p_dir, files_list* p_files)
 {
 	int res = GET_FILES_SUCCESS;
 
-    // create user directory path
+	p_files->file = NULL;
+	p_files->p_next = NULL;
+	
+	struct dirent* p_next_file;
+	char* file_name;
+
+	files_list* p_curr = p_files;
+	files_list* p_next = NULL;
+	while ((p_next_file = readdir(p_dir)) != NULL )
+	{
+		file_name = p_next_file->d_name;
+		if (file_name[0] != '.') // ignore invalid files
+		{
+			p_curr->file = malloc((strlen(file_name) + 1) * sizeof(char));
+			strcpy(p_curr->file, file_name);
+
+			p_next = malloc(sizeof(files_list));
+			p_next->file = NULL;
+			p_next->p_next = NULL;
+
+			p_curr->p_next = p_next;
+			p_curr = p_next;
+		}
+	}
+	
+	if (closedir(p_dir) != 0)
+	{
+		perror("ERROR get_user_files_list_from_dir - could not close dir");
+		res = GET_FILES_ERR_CLOSE_DIR;
+	}
+
+	return res;
+}
+
+
+
+bool_t get_files_1_svc(char *username, get_files_res* p_result,  struct svc_req *rqstp)
+{
+	int res = -1;
+	get_files_res result;
+
+    //create user directory path
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1; // + 1 --> /
     char user_dir_path[user_folder_path_len + 1]; 
     strcpy(user_dir_path, STORAGE_DIR_PATH);
     strcat(user_dir_path, username);
-    strcat(user_dir_path, STORAGE_SLASH);
+    strcat(user_dir_path, FILE_SEPARATOR);
 
 	// open user directory
-    if (pthread_mutex_lock(&mutex_storage) == 0)
-    {
-        DIR* p_user_dir = opendir(user_dir_path);
-        if (p_user_dir != NULL)
-        {
-            struct dirent* p_next_file;
-            char* file_name;
-            *p_quantity = count_user_files(p_user_dir);
-            char** user_files = malloc(*p_quantity * sizeof(char*));
-            int file_idx = 0;
+	if (pthread_mutex_lock(&mutex_storage) == 0)
+	{
+		DIR* p_user_dir = opendir(user_dir_path);
+		if (p_user_dir != NULL)
+		{
+			files_list list;
+			res = get_files_list_from_dir(p_user_dir, &list);
+			result.files = list;
+			result.res = res;
+		}
+		else // error during opening the directory
+		{
+			if (errno == ENOENT) // no such user
+				res = GET_FILES_ERR_NO_SUCH_USER;
+			else // other error
+			{
+				perror("ERROR get_files - open dir:");
+				res = GET_FILES_ERR_OPEN_DIR;
+			}
+		}
 
-            while ((p_next_file = readdir(p_user_dir)) != NULL )
-            {
-                file_name = p_next_file->d_name;
-                if (file_name[0] != '.') // ignore 'non files'
-                {
-                    user_files[file_idx] = malloc((strlen(file_name) + 1) * sizeof(char));
-                    strcpy(user_files[file_idx], file_name);
-                    ++file_idx;
-                }
-            }
+		if (pthread_mutex_unlock(&mutex_storage) != 0)
+		{
+			res = GET_FILES_ERR_UNLOCK_MUTEX;
+			printf("ERROR get_files - could not unlock mutex\n");
+		}
+	}
+	else // couldn't lock mutex
+	{
+		res = GET_FILES_ERR_LOCK_MUTEX;
+		printf("ERROR get_files - could not lock mutex\n");
+	}
 
-            *p_user_files = user_files;
-            
-            if (closedir(p_user_dir) != 0)
-            {
-                perror("ERROR get_user_files_list - could not close dir");
-                res = GET_USER_FILES_LIST_ERR_CLOSE_DIR;
-            }
-        }
-        else // no such user
-            res = GET_USER_FILES_LIST_ERR_NO_SUCH_USER;
+	*p_result = result;
+	
+	return TRUE;
+}
 
-        if (pthread_mutex_unlock(&mutex_storage) != 0)
-        {
-            res = GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK;
-            printf("ERROR get_user_files_list - could not unlock mutex\n");
-        }
-    }
-    else // couldn't lock mutex
-    {
-        res = GET_USER_FILES_LIST_ERR_MUTEX_LOCK;
-        printf("ERROR get_user_files_list - could not lock mutex\n");
-    }
 
-	return retval;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// is registered
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool_t is_registered_1_svc(char *username, int *result,  struct svc_req *rqstp)
+{
+	*result = is_registered_local(username);
+
+	return TRUE;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// is connected
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool_t is_connected_1_svc(char *username, int *result,  struct svc_req *rqstp)
+{
+	*result = is_connected_local(username);
+
+	return TRUE;
 }
 
 int
