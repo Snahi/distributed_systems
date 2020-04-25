@@ -688,13 +688,62 @@ delete_file_1_svc(char *username, char *file_name, int *result,  struct svc_req 
 }
 
 bool_t
-get_files_1_svc(char *username, files_vector *result,  struct svc_req *rqstp)
+get_files_1_svc(char *username, int *p_err, files_vector *result,  struct svc_req *rqstp)
 {
-	bool_t retval;
+	int res = GET_FILES_SUCCESS;
 
-	/*
-	 * insert server code here
-	 */
+    // create user directory path
+    int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1; // + 1 --> /
+    char user_dir_path[user_folder_path_len + 1]; 
+    strcpy(user_dir_path, STORAGE_DIR_PATH);
+    strcat(user_dir_path, username);
+    strcat(user_dir_path, STORAGE_SLASH);
+
+	// open user directory
+    if (pthread_mutex_lock(&mutex_storage) == 0)
+    {
+        DIR* p_user_dir = opendir(user_dir_path);
+        if (p_user_dir != NULL)
+        {
+            struct dirent* p_next_file;
+            char* file_name;
+            *p_quantity = count_user_files(p_user_dir);
+            char** user_files = malloc(*p_quantity * sizeof(char*));
+            int file_idx = 0;
+
+            while ((p_next_file = readdir(p_user_dir)) != NULL )
+            {
+                file_name = p_next_file->d_name;
+                if (file_name[0] != '.') // ignore 'non files'
+                {
+                    user_files[file_idx] = malloc((strlen(file_name) + 1) * sizeof(char));
+                    strcpy(user_files[file_idx], file_name);
+                    ++file_idx;
+                }
+            }
+
+            *p_user_files = user_files;
+            
+            if (closedir(p_user_dir) != 0)
+            {
+                perror("ERROR get_user_files_list - could not close dir");
+                res = GET_USER_FILES_LIST_ERR_CLOSE_DIR;
+            }
+        }
+        else // no such user
+            res = GET_USER_FILES_LIST_ERR_NO_SUCH_USER;
+
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = GET_USER_FILES_LIST_ERR_MUTEX_UNLOCK;
+            printf("ERROR get_user_files_list - could not unlock mutex\n");
+        }
+    }
+    else // couldn't lock mutex
+    {
+        res = GET_USER_FILES_LIST_ERR_MUTEX_LOCK;
+        printf("ERROR get_user_files_list - could not lock mutex\n");
+    }
 
 	return retval;
 }
