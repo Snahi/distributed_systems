@@ -908,7 +908,7 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 // publish_content
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 	
-int publish_content(int socket){
+void publish_content(int socket){
 	
 	/*To get the error for is_connected*/
 	int is_connected_res;
@@ -969,7 +969,8 @@ int publish_content(int socket){
 		res=PUBLISH_CONTENT_ERR_OTHER;
 	}
 
-	return res;
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR publish_content - could not send a response\n");
 }
 
 
@@ -978,7 +979,7 @@ int publish_content(int socket){
 // delete published content
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-int delete_published_content(int socket){
+void delete_published_content(int socket){
 
 	/*To get the error for is_connected*/
 	int is_connected_res;
@@ -1039,7 +1040,8 @@ int delete_published_content(int socket){
 		res=DELETE_PUBLISHED_CONT_ERR_OTHER;
 	}
 
-	return res;
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR delete_published_content - could not send a response\n");
 }
 
 

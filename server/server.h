@@ -204,6 +204,6 @@ void list_content(int socket);
 */
 int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
-int publish_content(int socket);
+void publish_content(int socket);
 
-int delete_published_content(int socket);
+void delete_published_content(int socket);
