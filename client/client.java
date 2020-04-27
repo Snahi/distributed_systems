@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+
 import gnu.getopt.Getopt;
 //import java.lang.*;
 
@@ -34,7 +36,6 @@ class client implements Runnable {
     //Variable used to control the execution of the thread
     private static Boolean operating_thread = false; 
 	
-	static Usuario lista_usuarios[]=null;
 	private static int num_usuarios=0;
 	private static int res_thread=0;
 
@@ -578,10 +579,45 @@ class client implements Runnable {
 	 */
 	static int list_users()
 	{
-		int rc=0;
+		ArrayList<Usuario> users = new ArrayList<>();
+		byte response = getConnectedUsersList(users);
+
+		//Switch for the different returning messages from the server
+		switch (response) {
+			case 0: //SUCCESS
+			System.out.println("c> LIST_USERS OK");
+			for (Usuario u : users)
+			{
+				System.out.print("\t" + u.getNombre());
+				System.out.print("\t" + u.getIp());
+				System.out.println("\t" + u.getPort());
+			}
+			break;
+			
+			case 1: //USER DOES NOT EXIST
+			System.out.println("c> LIST_USERS FAIL , USER DOES NOT EXIST");
+			break;
+			
+			case 2: //USER IS NOT CONNECTED
+			System.out.println("c> LIST_USERS FAIL , USER NOT CONNECTED");
+			break;
+
+			case 3: //ANY OTHER CASE OR ERROR
+			System.out.println("c>LIST_USERS FAIL");
+			break;
+
+		}
+
+		return response;
+	}
+
+
+
+	private static byte getConnectedUsersList(ArrayList<Usuario> users)
+	{
+		byte response = 0;
+
 		try {
-
-
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
@@ -589,88 +625,46 @@ class client implements Runnable {
 			//Send to the server the message PUBLISH, the username, the file name and its description
 			outToServer.writeBytes("LIST_USERS\0");
 			outToServer.flush();
-			//JUST FOR NOW WE SET MANUALLY THE USERNAME
-			// username="alex";
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
 
 			//Receive the message from the server and read it
 			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-			byte response = inFromServer.readByte();
+			response = inFromServer.readByte();
 
-			//Switch for the different returning messages from the server
-			switch (response) {
-				case 0: //SUCCESS
-				lista_usuarios=new Usuario[40];
-				rc=0;
-				//TEST
-				//BufferedReader f = new BufferedReader(new InputStreamReader(client_Socket.getInputStream()));
-				//String susers = f.readLine();
-				
-				//String susers = inFromServer.readLine();
-				
-				//String susers = readbytes(f);
+			if (response == 0)
+			{
+				// get number of users
+				String strNumOfUsers = readbytes(inFromServer);
+				int numOfUsers = -1;
+				numOfUsers = Integer.parseInt(strNumOfUsers);
 
-				String susers = readbytes(inFromServer);
-				int nusers = Integer.parseInt(susers);
-				num_usuarios=nusers;
-				System.out.println("c> LIST_USERS OK");
-				for (int i=0;i<nusers;i++){
-					//USER NAME
+				Usuario tmpUser = null;
+				for (int i = 0; i < numOfUsers; i++)
+				{
 					String name = readbytes(inFromServer);
-					System.out.print("\t"+name);
-
-					//USER IP
 					String ip = readbytes(inFromServer);
-					System.out.print("\t"+ip);
-
-					//USER PORT
 					String port = readbytes(inFromServer);
-					System.out.println("\t"+port);
 
-					lista_usuarios[i].nombre=name;
-					lista_usuarios[i].setIp(ip);
-					lista_usuarios[i].setPort(Integer.parseInt(port));
-					//nusers--;
-					//i++;
+					tmpUser = new Usuario();
+
+					tmpUser.setNombre(name);
+					tmpUser.setIp(ip);
+					tmpUser.setPort(Integer.parseInt(port));
+
+					users.add(tmpUser);
 				}
-				break;
-				
-				case 1: //USER DOES NOT EXIST
-				rc=1;
-				System.out.println("c> LIST_USERS FAIL , USER DOES NOT EXIST");
-				break;
-				
-				case 2: //USER IS NOT CONNECTED
-				rc=2;
-				System.out.println("c> LIST_USERS FAIL , USER NOT CONNECTED");
-				break;
-
-				case 3: //ANY OTHER CASE OR ERROR
-				rc=3;
-				System.out.println("c>LIST_USERS FAIL");
-				break;
-
 			}
-			//After checkhing the response, we close the socket
-			client_Socket.close();
 
+			client_Socket.close();
 		}
-		catch (ConnectException e)
+		catch (Exception e)
 		{
-			System.out.println("c> LIST_USERS FAIL");
-		}
-		catch(Exception e) {
-			System.out.println("Exception: " + e);
+			response = 3;
 			e.printStackTrace();
-			return ERROR;
 		}
-		return rc;
-		/*
-		// Write your code here
-		System.out.println("LIST_USERS " );
-		return 0;
-		*/
+		
+		return response;
 	}
 
 
@@ -775,11 +769,19 @@ class client implements Runnable {
 	{
 		String c2_ip=null;
 		int c2_port=-1;
-		for (int i=0;i<num_usuarios;i++){
-			if (user_name.equals(lista_usuarios[i].nombre)){
-				c2_ip=lista_usuarios[i].ip;
-				c2_port=lista_usuarios[i].port;
-				break;
+		
+		ArrayList<Usuario> usuarios = new ArrayList<>();
+		int res = getConnectedUsersList(usuarios);
+
+		if (res != 0)
+			return ERROR; // TODO I'm not sure about the numbers, you must check it out youreself what's the correct value.
+
+		for (Usuario u : usuarios)
+		{
+			if (u.getNombre().equals(user_name))
+			{
+				c2_ip = u.getIp();
+				c2_port = u.getPort();
 			}
 		}
 
