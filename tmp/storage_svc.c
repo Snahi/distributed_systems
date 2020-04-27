@@ -71,9 +71,21 @@ _delete_file_1 (delete_file_1_argument *argp, void *result, struct svc_req *rqst
 }
 
 int
-_get_files_1 (get_files_1_argument *argp, void *result, struct svc_req *rqstp)
+_get_files_1 (char * *argp, void *result, struct svc_req *rqstp)
 {
-	return (get_files_1_svc(argp->username, argp->p_err, result, rqstp));
+	return (get_files_1_svc(*argp, result, rqstp));
+}
+
+int
+_is_registered_1 (char * *argp, void *result, struct svc_req *rqstp)
+{
+	return (is_registered_1_svc(*argp, result, rqstp));
+}
+
+int
+_is_connected_1 (char * *argp, void *result, struct svc_req *rqstp)
+{
+	return (is_connected_1_svc(*argp, result, rqstp));
 }
 
 static void
@@ -86,7 +98,9 @@ storage_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		char *delete_connected_user_1_arg;
 		add_file_1_argument add_file_1_arg;
 		delete_file_1_argument delete_file_1_arg;
-		get_files_1_argument get_files_1_arg;
+		char *get_files_1_arg;
+		char *is_registered_1_arg;
+		char *is_connected_1_arg;
 	} argument;
 	union {
 		int setup_1_res;
@@ -98,7 +112,9 @@ storage_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		users_vector get_connected_users_1_res;
 		int add_file_1_res;
 		int delete_file_1_res;
-		files_vector get_files_1_res;
+		files_list get_files_1_res;
+		int is_registered_1_res;
+		int is_connected_1_res;
 	} result;
 	bool_t retval;
 	xdrproc_t _xdr_argument, _xdr_result;
@@ -164,9 +180,21 @@ storage_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		break;
 
 	case get_files:
-		_xdr_argument = (xdrproc_t) xdr_get_files_1_argument;
-		_xdr_result = (xdrproc_t) xdr_files_vector;
+		_xdr_argument = (xdrproc_t) xdr_wrapstring;
+		_xdr_result = (xdrproc_t) xdr_files_list;
 		local = (bool_t (*) (char *, void *,  struct svc_req *))_get_files_1;
+		break;
+
+	case is_registered:
+		_xdr_argument = (xdrproc_t) xdr_wrapstring;
+		_xdr_result = (xdrproc_t) xdr_int;
+		local = (bool_t (*) (char *, void *,  struct svc_req *))_is_registered_1;
+		break;
+
+	case is_connected:
+		_xdr_argument = (xdrproc_t) xdr_wrapstring;
+		_xdr_result = (xdrproc_t) xdr_int;
+		local = (bool_t (*) (char *, void *,  struct svc_req *))_is_connected_1;
 		break;
 
 	default:

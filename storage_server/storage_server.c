@@ -438,6 +438,7 @@ bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_re
 
     char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
     strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
+	strcat(user_file_path, FILE_SEPARATOR);
     strcat(user_file_path, username);
 
 	if (is_registered_local(username))
@@ -761,10 +762,10 @@ int get_files_list_from_dir(DIR* p_dir, files_list* p_files)
 
 
 
-bool_t get_files_1_svc(char *username, get_files_res* p_result,  struct svc_req *rqstp)
+bool_t get_files_1_svc(char *username, files_list* p_result,  struct svc_req *rqstp)
 {
 	int res = -1;
-	get_files_res result;
+	files_list result;
 
     //create user directory path
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1; // + 1 --> /
@@ -779,10 +780,9 @@ bool_t get_files_1_svc(char *username, get_files_res* p_result,  struct svc_req 
 		DIR* p_user_dir = opendir(user_dir_path);
 		if (p_user_dir != NULL)
 		{
-			files_list list;
-			res = get_files_list_from_dir(p_user_dir, &list);
-			result.files = list;
-			result.res = res;
+			//files_list list;
+			res = get_files_list_from_dir(p_user_dir, &result);
+			//result.files = list;
 		}
 		else // error during opening the directory
 		{
@@ -807,6 +807,7 @@ bool_t get_files_1_svc(char *username, get_files_res* p_result,  struct svc_req 
 		printf("ERROR get_files - could not lock mutex\n");
 	}
 
+	// p_result->res = res;
 	*p_result = result;
 	
 	return TRUE;

@@ -21,12 +21,6 @@ struct files_list {
 };
 typedef struct files_list files_list;
 
-struct get_files_res {
-	int res;
-	files_list files;
-};
-typedef struct get_files_res get_files_res;
-
 struct user {
 	char *username;
 	char *ip;
@@ -91,8 +85,8 @@ extern  bool_t add_file_1_svc(char *, char *, char *, int *, struct svc_req *);
 extern  enum clnt_stat delete_file_1(char *, char *, int *, CLIENT *);
 extern  bool_t delete_file_1_svc(char *, char *, int *, struct svc_req *);
 #define get_files 10
-extern  enum clnt_stat get_files_1(char *, get_files_res *, CLIENT *);
-extern  bool_t get_files_1_svc(char *, get_files_res *, struct svc_req *);
+extern  enum clnt_stat get_files_1(char *, files_list *, CLIENT *);
+extern  bool_t get_files_1_svc(char *, files_list *, struct svc_req *);
 #define is_registered 11
 extern  enum clnt_stat is_registered_1(char *, int *, CLIENT *);
 extern  bool_t is_registered_1_svc(char *, int *, struct svc_req *);
@@ -145,7 +139,6 @@ extern int storage_1_freeresult ();
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t xdr_files_list (XDR *, files_list*);
-extern  bool_t xdr_get_files_res (XDR *, get_files_res*);
 extern  bool_t xdr_user (XDR *, user*);
 extern  bool_t xdr_users_vector (XDR *, users_vector*);
 extern  bool_t xdr_add_connected_user_1_argument (XDR *, add_connected_user_1_argument*);
@@ -154,7 +147,6 @@ extern  bool_t xdr_delete_file_1_argument (XDR *, delete_file_1_argument*);
 
 #else /* K&R C */
 extern bool_t xdr_files_list ();
-extern bool_t xdr_get_files_res ();
 extern bool_t xdr_user ();
 extern bool_t xdr_users_vector ();
 extern bool_t xdr_add_connected_user_1_argument ();

@@ -1008,13 +1008,16 @@ void send_list_content_result(int socket, uint8_t res, char** files, int num_of_
 
 void list_content(int socket)
 {
-	get_files_res files_res;
+	files_list files_res;
 	int res = assure_requester_correctness_for_list_content(socket);
 	if (res == LIST_CONTENT_SUCCESS)
 	{
 		char content_owner[MAX_USERNAME_LEN + 1];
 		if (safe_socket_read(socket, content_owner, MAX_USERNAME_LEN) > 0) // content owner specified
 		{
+			printf("owner: %s\n", content_owner);
+			int x = get_files_1(content_owner, &files_res, p_client);
+			printf("res code: %d\n", x);
 			if (get_files_1(content_owner, &files_res, p_client) != RPC_SUCCESS)
 			{
 				clnt_perror(p_client, "ERROR list_content - rpc error get files\n");
@@ -1028,7 +1031,7 @@ void list_content(int socket)
 		}
 	}
 
-	printf("res: %d\n", files_res.res);
+	printf("res: %s\n", files_res.file);
 	// char** files = files_res.string_vector_val;
 	// int n_of_files = files_res.string_vector_len;
 	// send_list_content_result(socket, res, files, n_of_files);

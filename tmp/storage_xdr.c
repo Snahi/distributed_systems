@@ -6,22 +6,13 @@
 #include "storage.h"
 
 bool_t
-xdr_file (XDR *xdrs, file *objp)
+xdr_files_list (XDR *xdrs, files_list *objp)
 {
 	register int32_t *buf;
 
-	 if (!xdr_string (xdrs, &objp->name, ~0))
+	 if (!xdr_string (xdrs, &objp->file, ~0))
 		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_files_vector (XDR *xdrs, files_vector *objp)
-{
-	register int32_t *buf;
-
-	 if (!xdr_array (xdrs, (char **)&objp->files_vector_val, (u_int *) &objp->files_vector_len, ~0,
-		sizeof (file), (xdrproc_t) xdr_file))
+	 if (!xdr_pointer (xdrs, (char **)&objp->p_next, sizeof (files_list), (xdrproc_t) xdr_files_list))
 		 return FALSE;
 	return TRUE;
 }
@@ -81,16 +72,6 @@ xdr_delete_file_1_argument (XDR *xdrs, delete_file_1_argument *objp)
 	 if (!xdr_string (xdrs, &objp->username, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->file_name, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_get_files_1_argument (XDR *xdrs, get_files_1_argument *objp)
-{
-	 if (!xdr_string (xdrs, &objp->username, ~0))
-		 return FALSE;
-	 if (!xdr_pointer (xdrs, (char **)&objp->p_err, sizeof (int), (xdrproc_t) xdr_int))
 		 return FALSE;
 	return TRUE;
 }

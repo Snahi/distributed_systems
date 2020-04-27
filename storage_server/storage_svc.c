@@ -112,7 +112,7 @@ storage_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		users_vector get_connected_users_1_res;
 		int add_file_1_res;
 		int delete_file_1_res;
-		get_files_res get_files_1_res;
+		files_list get_files_1_res;
 		int is_registered_1_res;
 		int is_connected_1_res;
 	} result;
@@ -181,7 +181,7 @@ storage_1(struct svc_req *rqstp, register SVCXPRT *transp)
 
 	case get_files:
 		_xdr_argument = (xdrproc_t) xdr_wrapstring;
-		_xdr_result = (xdrproc_t) xdr_get_files_res;
+		_xdr_result = (xdrproc_t) xdr_files_list;
 		local = (bool_t (*) (char *, void *,  struct svc_req *))_get_files_1;
 		break;
 

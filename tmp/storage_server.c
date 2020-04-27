@@ -115,7 +115,31 @@ delete_file_1_svc(char *username, char *file_name, int *result,  struct svc_req 
 }
 
 bool_t
-get_files_1_svc(char *username, int *p_err, files_vector *result,  struct svc_req *rqstp)
+get_files_1_svc(char *username, files_list *result,  struct svc_req *rqstp)
+{
+	bool_t retval;
+
+	/*
+	 * insert server code here
+	 */
+
+	return retval;
+}
+
+bool_t
+is_registered_1_svc(char *username, int *result,  struct svc_req *rqstp)
+{
+	bool_t retval;
+
+	/*
+	 * insert server code here
+	 */
+
+	return retval;
+}
+
+bool_t
+is_connected_1_svc(char *username, int *result,  struct svc_req *rqstp)
 {
 	bool_t retval;
 

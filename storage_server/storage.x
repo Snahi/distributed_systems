@@ -3,11 +3,6 @@ struct files_list {
 	files_list* p_next;
 };
 
-struct get_files_res {
-	int res;
-	files_list files;
-};
-
 struct user {
 	string username<>;
 	string ip<>;
@@ -27,7 +22,7 @@ program STORAGE {
  		users_vector get_connected_users() = 7;
 		int add_file(string username, string file_name, string description) = 8;
 		int delete_file(string username, string file_name) = 9;
-		get_files_res get_files(string username) = 10;
+		files_list get_files(string username) = 10;
 		int is_registered(string username) = 11;
 		int is_connected(string username) = 12;
 	} = 1;

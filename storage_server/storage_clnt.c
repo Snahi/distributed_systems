@@ -99,11 +99,11 @@ delete_file_1(char *username, char *file_name, int *clnt_res,  CLIENT *clnt)
 }
 
 enum clnt_stat 
-get_files_1(char *username, get_files_res *clnt_res,  CLIENT *clnt)
+get_files_1(char *username, files_list *clnt_res,  CLIENT *clnt)
 {
 	return (clnt_call(clnt, get_files,
 		(xdrproc_t) xdr_wrapstring, (caddr_t) &username,
-		(xdrproc_t) xdr_get_files_res, (caddr_t) clnt_res,
+		(xdrproc_t) xdr_files_list, (caddr_t) clnt_res,
 		TIMEOUT));
 }
 

@@ -18,18 +18,6 @@ xdr_files_list (XDR *xdrs, files_list *objp)
 }
 
 bool_t
-xdr_get_files_res (XDR *xdrs, get_files_res *objp)
-{
-	register int32_t *buf;
-
-	 if (!xdr_int (xdrs, &objp->res))
-		 return FALSE;
-	 if (!xdr_files_list (xdrs, &objp->files))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
 xdr_user (XDR *xdrs, user *objp)
 {
 	register int32_t *buf;

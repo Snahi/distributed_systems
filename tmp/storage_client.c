@@ -41,9 +41,14 @@ storage_1(char *host)
 	char *delete_file_1_username;
 	char *delete_file_1_file_name;
 	enum clnt_stat retval_10;
-	files_vector result_10;
+	files_list result_10;
 	char *get_files_1_username;
-	int get_files_1_p_err;
+	enum clnt_stat retval_11;
+	int result_11;
+	char *is_registered_1_username;
+	enum clnt_stat retval_12;
+	int result_12;
+	char *is_connected_1_username;
 
 #ifndef	DEBUG
 	clnt = clnt_create (host, STORAGE, STORAGE_VER, "udp");
@@ -89,8 +94,16 @@ storage_1(char *host)
 	if (retval_9 != RPC_SUCCESS) {
 		clnt_perror (clnt, "call failed");
 	}
-	retval_10 = get_files_1(get_files_1_username, get_files_1_p_err, &result_10, clnt);
+	retval_10 = get_files_1(get_files_1_username, &result_10, clnt);
 	if (retval_10 != RPC_SUCCESS) {
+		clnt_perror (clnt, "call failed");
+	}
+	retval_11 = is_registered_1(is_registered_1_username, &result_11, clnt);
+	if (retval_11 != RPC_SUCCESS) {
+		clnt_perror (clnt, "call failed");
+	}
+	retval_12 = is_connected_1(is_connected_1_username, &result_12, clnt);
+	if (retval_12 != RPC_SUCCESS) {
 		clnt_perror (clnt, "call failed");
 	}
 #ifndef	DEBUG
