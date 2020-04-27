@@ -34,6 +34,9 @@ class client implements Runnable {
     //Variable used to control the execution of the thread
     private static Boolean operating_thread = false; 
 	
+	static Usuario lista_usuarios[]=null;
+	private static int num_usuarios=0;
+	private static int res_thread=0;
 
 	/******************* CONSTRUCTOR (For the thread) *******************/
 
@@ -100,7 +103,6 @@ class client implements Runnable {
 				if (s.equals("GET_FILE\0")) {
 					//String user = readbytes(inFromServer);
                     String remote_file_name = readbytes(inFromServer);
-					String local_file_name = readbytes(inFromServer);
 					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
 					File fichero = new File(pathfichero);
 					if (fichero.exists()){
@@ -124,12 +126,15 @@ class client implements Runnable {
 			
 						bis.close();
 						bos.close();
+						
 						//RETURN 0
+						res_thread=0;
 							//SI SE TRANSFIERE ENTERO
 							//System.out.println("GET_FILE OK");
 					}
 					else {
 						//RETURN 1
+						res_thread=1;
 					}
 				}
 				else {
@@ -596,6 +601,7 @@ class client implements Runnable {
 			//Switch for the different returning messages from the server
 			switch (response) {
 				case 0: //SUCCESS
+				lista_usuarios=new Usuario[40];
 				rc=0;
 				//TEST
 				//BufferedReader f = new BufferedReader(new InputStreamReader(client_Socket.getInputStream()));
@@ -607,15 +613,26 @@ class client implements Runnable {
 
 				String susers = readbytes(inFromServer);
 				int nusers = Integer.parseInt(susers);
+				num_usuarios=nusers;
 				System.out.println("c> LIST_USERS OK");
-				while (nusers!=0){
-					String aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.println("\t"+aux);
-					nusers--;
+				for (int i=0;i<nusers;i++){
+					//USER NAME
+					String name = readbytes(inFromServer);
+					System.out.print("\t"+name);
+
+					//USER IP
+					String ip = readbytes(inFromServer);
+					System.out.print("\t"+ip);
+
+					//USER PORT
+					String port = readbytes(inFromServer);
+					System.out.println("\t"+port);
+
+					lista_usuarios[i].nombre=name;
+					lista_usuarios[i].setIp(ip);
+					lista_usuarios[i].setPort(Integer.parseInt(port));
+					//nusers--;
+					//i++;
 				}
 				break;
 				
@@ -756,10 +773,16 @@ class client implements Runnable {
 	 */
 	static int get_file(String user_name, String remote_file_name, String local_file_name)
 	{
-
-
 		String c2_ip=null;
 		int c2_port=-1;
+		for (int i=0;i<num_usuarios;i++){
+			if (user_name.equals(lista_usuarios[i].nombre)){
+				c2_ip=lista_usuarios[i].ip;
+				c2_port=lista_usuarios[i].port;
+				break;
+			}
+		}
+
 		//OBTAINING THE IP AND PORT (IN SOME WAY)
 
 
@@ -768,6 +791,11 @@ class client implements Runnable {
 			Socket client_Socket = new Socket(c2_ip,c2_port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 			
+			outToServer.writeBytes("SEND\0");
+			outToServer.flush();
+			outToServer.writeBytes(remote_file_name+"\0");
+			outToServer.flush();
+
 
 			//RECIBING THE FILE
 			//DataOutputStream output;
