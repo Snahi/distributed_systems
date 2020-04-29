@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+
 import gnu.getopt.Getopt;
 //import java.lang.*;
 
@@ -10,7 +12,7 @@ class client implements Runnable {
 	static final int ERROR_USER = 1;
 	static final int ERROR = 2;
 
-	static final String pathfiles="/home/alejandro/Escritorio/distributed_systems/client/clientes";
+	static final String pathfiles="clientes";
 
 	/* Cna we use enum for returning codes??
 	private static enum CODE {
@@ -34,6 +36,8 @@ class client implements Runnable {
     //Variable used to control the execution of the thread
     private static Boolean operating_thread = false; 
 	
+	private static int num_usuarios=0;
+	private static int res_thread=0;
 
 	/******************* CONSTRUCTOR (For the thread) *******************/
 
@@ -84,57 +88,75 @@ class client implements Runnable {
 
 	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
     public void run() {
-		//timeout_time ASK IF NECESSARY
-		/*try {
-            server_Socket.setSoTimeout(1000); 
-        }
-		catch(Exception e){}
-		*/
-        while(operating_thread == true) {
+		
+        
             try {
 				Socket cli_ser_Socket = server_Socket.accept(); 
 				
+				while(operating_thread == true) {
+
 				DataInputStream inFromServer = new DataInputStream(cli_ser_Socket.getInputStream());
 				String s = readbytes(inFromServer);
 				
 				if (s.equals("GET_FILE\0")) {
 					//String user = readbytes(inFromServer);
                     String remote_file_name = readbytes(inFromServer);
-					String local_file_name = readbytes(inFromServer);
 					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
 					File fichero = new File(pathfichero);
 					if (fichero.exists()){
-						DataInputStream input;
-        				BufferedInputStream bis;
-						BufferedOutputStream bos;
-						byte[] byteArray;
+						byte[] byteArray=new byte[(int)fichero.length()];
+						
+						FileInputStream fis;
+						BufferedInputStream bis;
+						OutputStream os;
+						//DataInputStream input;
+        				/*
+						BufferedOutputStream bos;						
 						int in;
 
-						bis = new BufferedInputStream(new FileInputStream(fichero));
+
+						fis=new FileInputStream(fichero);
+
+						bis = new BufferedInputStream(fis);
+
 						bos = new BufferedOutputStream(cli_ser_Socket.getOutputStream());
-			
+						*/
+						fis = new FileInputStream(fichero);
+          				bis = new BufferedInputStream(fis);
+          				bis.read(byteArray,0,byteArray.length);
+          				os = cli_ser_Socket.getOutputStream();
+          				System.out.println("Sending " + remote_file_name + "(" + byteArray + " bytes)");
+          				os.write(byteArray,0,byteArray.length);
+          				os.flush();
+          				System.out.println("Done.");
+
+
 						//enviamos el nombre del archivo            
-						DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
-						dos.writeUTF(fichero.getName());
-			
+						//DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
+						//dos.writeUTF(fichero.getName());
+						/*
 						byteArray = new byte[8192];
 						while ((in = bis.read(byteArray)) != -1){
 							bos.write(byteArray,0,in);
 						}
-			
+			*/
 						bis.close();
-						bos.close();
+						os.close();
+						
 						//RETURN 0
+						res_thread=0;
 							//SI SE TRANSFIERE ENTERO
 							//System.out.println("GET_FILE OK");
 					}
 					else {
 						//RETURN 1
+						res_thread=1;
 					}
 				}
 				else {
 					//NO HAY REQUEST
 				}
+			}
             }
             catch(SocketTimeoutException e){
 				//RETURN 2
@@ -150,7 +172,7 @@ class client implements Runnable {
 				//RETURN 2
 				System.out.println("GET_FILE FAIL 3");
 			}
-        }
+        
     }
 
 
@@ -280,7 +302,8 @@ class client implements Runnable {
 		if(connect == false){ 
             try {
                 Socket client_Socket = new Socket(_server, _port);
-                server_Socket = new ServerSocket(0);
+				server_Socket = new ServerSocket(0);
+				System.out.println("PORT LISTENING: "+server_Socket.getLocalPort());
                 DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
                 //Send to the server the message CONNECT and the username and port of the client
@@ -290,7 +313,6 @@ class client implements Runnable {
 				outToServer.flush();
 				outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
 				outToServer.flush();
-
                 //Receive the message from the server and read it
                 DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
                 byte [] response = new byte[1];
@@ -573,10 +595,45 @@ class client implements Runnable {
 	 */
 	static int list_users()
 	{
-		int rc=0;
+		ArrayList<Usuario> users = new ArrayList<>();
+		byte response = getConnectedUsersList(users);
+
+		//Switch for the different returning messages from the server
+		switch (response) {
+			case 0: //SUCCESS
+			System.out.println("c> LIST_USERS OK");
+			for (Usuario u : users)
+			{
+				System.out.print("\t" + u.getNombre());
+				System.out.print("\t" + u.getIp());
+				System.out.println("\t" + u.getPort());
+			}
+			break;
+			
+			case 1: //USER DOES NOT EXIST
+			System.out.println("c> LIST_USERS FAIL , USER DOES NOT EXIST");
+			break;
+			
+			case 2: //USER IS NOT CONNECTED
+			System.out.println("c> LIST_USERS FAIL , USER NOT CONNECTED");
+			break;
+
+			case 3: //ANY OTHER CASE OR ERROR
+			System.out.println("c>LIST_USERS FAIL");
+			break;
+
+		}
+
+		return response;
+	}
+
+
+
+	private static byte getConnectedUsersList(ArrayList<Usuario> users)
+	{
+		byte response = 0;
+
 		try {
-
-
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
@@ -584,76 +641,46 @@ class client implements Runnable {
 			//Send to the server the message PUBLISH, the username, the file name and its description
 			outToServer.writeBytes("LIST_USERS\0");
 			outToServer.flush();
-			//JUST FOR NOW WE SET MANUALLY THE USERNAME
-			// username="alex";
 			outToServer.writeBytes(username+"\0");
 			outToServer.flush();
 
 			//Receive the message from the server and read it
 			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-			byte response = inFromServer.readByte();
+			response = inFromServer.readByte();
 
-			//Switch for the different returning messages from the server
-			switch (response) {
-				case 0: //SUCCESS
-				rc=0;
-				//TEST
-				//BufferedReader f = new BufferedReader(new InputStreamReader(client_Socket.getInputStream()));
-				//String susers = f.readLine();
-				
-				//String susers = inFromServer.readLine();
-				
-				//String susers = readbytes(f);
+			if (response == 0)
+			{
+				// get number of users
+				String strNumOfUsers = readbytes(inFromServer);
+				int numOfUsers = -1;
+				numOfUsers = Integer.parseInt(strNumOfUsers);
 
-				String susers = readbytes(inFromServer);
-				int nusers = Integer.parseInt(susers);
-				System.out.println("c> LIST_USERS OK");
-				while (nusers!=0){
-					String aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.print("\t"+aux);
-					aux = readbytes(inFromServer);
-					System.out.println("\t"+aux);
-					nusers--;
+				Usuario tmpUser = null;
+				for (int i = 0; i < numOfUsers; i++)
+				{
+					String name = readbytes(inFromServer);
+					String ip = readbytes(inFromServer);
+					String port = readbytes(inFromServer);
+
+					tmpUser = new Usuario();
+
+					tmpUser.setNombre(name);
+					tmpUser.setIp(ip);
+					tmpUser.setPort(Integer.parseInt(port));
+
+					users.add(tmpUser);
 				}
-				break;
-				
-				case 1: //USER DOES NOT EXIST
-				rc=1;
-				System.out.println("c> LIST_USERS FAIL , USER DOES NOT EXIST");
-				break;
-				
-				case 2: //USER IS NOT CONNECTED
-				rc=2;
-				System.out.println("c> LIST_USERS FAIL , USER NOT CONNECTED");
-				break;
-
-				case 3: //ANY OTHER CASE OR ERROR
-				rc=3;
-				System.out.println("c>LIST_USERS FAIL");
-				break;
-
 			}
-			//After checkhing the response, we close the socket
-			client_Socket.close();
 
+			client_Socket.close();
 		}
-		catch (ConnectException e)
+		catch (Exception e)
 		{
-			System.out.println("c> LIST_USERS FAIL");
-		}
-		catch(Exception e) {
-			System.out.println("Exception: " + e);
+			response = 3;
 			e.printStackTrace();
-			return ERROR;
 		}
-		return rc;
-		/*
-		// Write your code here
-		System.out.println("LIST_USERS " );
-		return 0;
-		*/
+		
+		return response;
 	}
 
 
@@ -756,10 +783,31 @@ class client implements Runnable {
 	 */
 	static int get_file(String user_name, String remote_file_name, String local_file_name)
 	{
-
-
 		String c2_ip=null;
 		int c2_port=-1;
+		
+		ArrayList<Usuario> usuarios = new ArrayList<>();
+		int res = getConnectedUsersList(usuarios);
+		System.out.println(usuarios.get(0).nombre);
+		System.out.println(usuarios.get(1).nombre);
+		System.out.println(usuarios.get(0).ip);
+		System.out.println(usuarios.get(1).ip);
+		System.out.println(usuarios.get(0).port);
+		System.out.println(usuarios.get(1).port);
+		if (res != 0)
+			return ERROR; // TODO I'm not sure about the numbers, you must check it out youreself what's the correct value.
+
+		for (Usuario u : usuarios)
+		{
+			if (u.getNombre().equals(user_name))
+			{
+				c2_ip = u.getIp();
+				c2_port = u.getPort();
+			}
+		}
+
+		System.out.println("IP:"+c2_ip);
+		System.out.println("PORT"+c2_port);
 		//OBTAINING THE IP AND PORT (IN SOME WAY)
 
 
@@ -768,39 +816,58 @@ class client implements Runnable {
 			Socket client_Socket = new Socket(c2_ip,c2_port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 			
+			outToServer.writeBytes("GET_FILE\0");
+			outToServer.flush();
+			outToServer.writeBytes(remote_file_name+"\0");
+			outToServer.flush();
+
 
 			//RECIBING THE FILE
 			//DataOutputStream output;
-			BufferedInputStream bis;
+			//BufferedInputStream bis;
+			InputStream is;
 			BufferedOutputStream bos;
+			FileOutputStream fos;
 			byte[] receivedData;
+			int bytesRead;
+			int current = 0;
 			boolean tranfered=false;
-			int in;
+			//int in;
 			//String file;
-			int tam;
+			//int tam;
 			
 			while ( !tranfered ) {
 
-                
-                bis = new BufferedInputStream(client_Socket.getInputStream());
-                DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
+				
+				is = client_Socket.getInputStream();
+				//bis = new BufferedInputStream(client_Socket.getInputStream());
+                //DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
             
                 //recibimos el nombre del fichero
 				//file = dis.readUTF();
-				tam = dis.readInt(); 
-				receivedData = new byte[tam];
+				//tam = dis.readInt(); 
+				//receivedData = new byte[tam];
 
-                //file = file.substring(file.indexOf('/')+1,file.length());
-
-                bos = new BufferedOutputStream(new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name));
-				
+				//file = file.substring(file.indexOf('/')+1,file.length());
+				receivedData=new byte[10000000];
+				fos=new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name);
+                bos = new BufferedOutputStream(fos);
+				bytesRead = is.read(receivedData,0,receivedData.length);
+				current = bytesRead;
+				do {
+					bytesRead =
+					is.read(receivedData, current, (receivedData.length-current));
+					if(bytesRead >= 0) current += bytesRead;
+				 } while(bytesRead > -1);
+				 bos.write(receivedData, 0 , current);
+				 bos.flush();
 				//If not we can  use a for loop also
-				while ((in = bis.read(receivedData)) != -1){
+				/*while ((in = bis.read(receivedData)) != -1){
                     bos.write(receivedData,0,in);
-				}
+				}*/
 				bos.flush();
                 bos.close();
-				dis.close();
+				//dis.close();
 				       
 			
 			}
@@ -808,6 +875,8 @@ class client implements Runnable {
 			return 0;
 		}
 		catch (Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
 			//TODO: handle exception
 		}
 		return 0;
