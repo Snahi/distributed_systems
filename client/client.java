@@ -12,7 +12,7 @@ class client implements Runnable {
 	static final int ERROR_USER = 1;
 	static final int ERROR = 2;
 
-	static final String pathfiles="/home/alejandro/Escritorio/distributed_systems/client/clientes";
+	static final String pathfiles="clientes";
 
 	/* Cna we use enum for returning codes??
 	private static enum CODE {
@@ -88,16 +88,13 @@ class client implements Runnable {
 
 	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
     public void run() {
-		//timeout_time ASK IF NECESSARY
-		/*try {
-            server_Socket.setSoTimeout(1000); 
-        }
-		catch(Exception e){}
-		*/
-        while(operating_thread == true) {
+		
+        
             try {
 				Socket cli_ser_Socket = server_Socket.accept(); 
 				
+				while(operating_thread == true) {
+
 				DataInputStream inFromServer = new DataInputStream(cli_ser_Socket.getInputStream());
 				String s = readbytes(inFromServer);
 				
@@ -107,26 +104,44 @@ class client implements Runnable {
 					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
 					File fichero = new File(pathfichero);
 					if (fichero.exists()){
-						DataInputStream input;
-        				BufferedInputStream bis;
-						BufferedOutputStream bos;
-						byte[] byteArray;
+						byte[] byteArray=new byte[(int)fichero.length()];
+						
+						FileInputStream fis;
+						BufferedInputStream bis;
+						OutputStream os;
+						//DataInputStream input;
+        				/*
+						BufferedOutputStream bos;						
 						int in;
 
-						bis = new BufferedInputStream(new FileInputStream(fichero));
+
+						fis=new FileInputStream(fichero);
+
+						bis = new BufferedInputStream(fis);
+
 						bos = new BufferedOutputStream(cli_ser_Socket.getOutputStream());
-			
+						*/
+						fis = new FileInputStream(fichero);
+          				bis = new BufferedInputStream(fis);
+          				bis.read(byteArray,0,byteArray.length);
+          				os = cli_ser_Socket.getOutputStream();
+          				System.out.println("Sending " + remote_file_name + "(" + byteArray + " bytes)");
+          				os.write(byteArray,0,byteArray.length);
+          				os.flush();
+          				System.out.println("Done.");
+
+
 						//enviamos el nombre del archivo            
-						DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
-						dos.writeUTF(fichero.getName());
-			
+						//DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
+						//dos.writeUTF(fichero.getName());
+						/*
 						byteArray = new byte[8192];
 						while ((in = bis.read(byteArray)) != -1){
 							bos.write(byteArray,0,in);
 						}
-			
+			*/
 						bis.close();
-						bos.close();
+						os.close();
 						
 						//RETURN 0
 						res_thread=0;
@@ -141,6 +156,7 @@ class client implements Runnable {
 				else {
 					//NO HAY REQUEST
 				}
+			}
             }
             catch(SocketTimeoutException e){
 				//RETURN 2
@@ -156,7 +172,7 @@ class client implements Runnable {
 				//RETURN 2
 				System.out.println("GET_FILE FAIL 3");
 			}
-        }
+        
     }
 
 
@@ -296,7 +312,6 @@ class client implements Runnable {
 				outToServer.flush();
 				outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
 				outToServer.flush();
-
                 //Receive the message from the server and read it
                 DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
                 byte [] response = new byte[1];
@@ -772,7 +787,12 @@ class client implements Runnable {
 		
 		ArrayList<Usuario> usuarios = new ArrayList<>();
 		int res = getConnectedUsersList(usuarios);
-
+		System.out.println(usuarios.get(0).nombre);
+		System.out.println(usuarios.get(1).nombre);
+		System.out.println(usuarios.get(0).ip);
+		System.out.println(usuarios.get(1).ip);
+		System.out.println(usuarios.get(0).port);
+		System.out.println(usuarios.get(1).port);
 		if (res != 0)
 			return ERROR; // TODO I'm not sure about the numbers, you must check it out youreself what's the correct value.
 
@@ -793,7 +813,7 @@ class client implements Runnable {
 			Socket client_Socket = new Socket(c2_ip,c2_port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 			
-			outToServer.writeBytes("SEND\0");
+			outToServer.writeBytes("GET_FILE\0");
 			outToServer.flush();
 			outToServer.writeBytes(remote_file_name+"\0");
 			outToServer.flush();
@@ -801,36 +821,50 @@ class client implements Runnable {
 
 			//RECIBING THE FILE
 			//DataOutputStream output;
-			BufferedInputStream bis;
+			//BufferedInputStream bis;
+			InputStream is;
 			BufferedOutputStream bos;
+			FileOutputStream fos;
 			byte[] receivedData;
+			int bytesRead;
+			int current = 0;
 			boolean tranfered=false;
-			int in;
+			//int in;
 			//String file;
-			int tam;
+			//int tam;
 			
 			while ( !tranfered ) {
 
-                
-                bis = new BufferedInputStream(client_Socket.getInputStream());
-                DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
+				
+				is = client_Socket.getInputStream();
+				//bis = new BufferedInputStream(client_Socket.getInputStream());
+                //DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
             
                 //recibimos el nombre del fichero
 				//file = dis.readUTF();
-				tam = dis.readInt(); 
-				receivedData = new byte[tam];
+				//tam = dis.readInt(); 
+				//receivedData = new byte[tam];
 
-                //file = file.substring(file.indexOf('/')+1,file.length());
-
-                bos = new BufferedOutputStream(new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name));
-				
+				//file = file.substring(file.indexOf('/')+1,file.length());
+				receivedData=new byte[10000000];
+				fos=new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name);
+                bos = new BufferedOutputStream(fos);
+				bytesRead = is.read(receivedData,0,receivedData.length);
+				current = bytesRead;
+				do {
+					bytesRead =
+					is.read(receivedData, current, (receivedData.length-current));
+					if(bytesRead >= 0) current += bytesRead;
+				 } while(bytesRead > -1);
+				 bos.write(receivedData, 0 , current);
+				 bos.flush();
 				//If not we can  use a for loop also
-				while ((in = bis.read(receivedData)) != -1){
+				/*while ((in = bis.read(receivedData)) != -1){
                     bos.write(receivedData,0,in);
-				}
+				}*/
 				bos.flush();
                 bos.close();
-				dis.close();
+				//dis.close();
 				       
 			
 			}
@@ -838,6 +872,8 @@ class client implements Runnable {
 			return 0;
 		}
 		catch (Exception e) {
+			System.out.println("Exception: " + e);
+			e.printStackTrace();
 			//TODO: handle exception
 		}
 		return 0;
