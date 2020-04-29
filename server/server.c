@@ -1052,7 +1052,7 @@ void delete_published_content(int socket){
 
 int safe_socket_read(int socket, char* read, int max_read_len)
 {
-	int total_read = read_line(socket, read, max_read_len);
+	int total_read = read_line(socket, read, max_read_len+1);
 	read[max_read_len] = '\0'; // just in case if the string is not properly ended
 	
 	return total_read;

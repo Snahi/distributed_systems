@@ -10,7 +10,7 @@
 #define MAX_PORT_NUMBER 49151
 #define MIN_PORT_NUMBER 1024
 #define MAX_PORT_STR "49151"
-#define MAX_PORT_STR_SIZE strlen(MAX_PORT_STR)
+#define MAX_PORT_STR_SIZE 5
 // ip address
 #define MAX_IP_ADDR_LEN 15
 #define LOOPBACK_INTERFACE_NAME "lo"

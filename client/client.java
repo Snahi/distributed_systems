@@ -302,7 +302,8 @@ class client implements Runnable {
 		if(connect == false){ 
             try {
                 Socket client_Socket = new Socket(_server, _port);
-                server_Socket = new ServerSocket(0);
+				server_Socket = new ServerSocket(0);
+				System.out.println("PORT LISTENING: "+server_Socket.getLocalPort());
                 DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
                 //Send to the server the message CONNECT and the username and port of the client
@@ -805,6 +806,8 @@ class client implements Runnable {
 			}
 		}
 
+		System.out.println("IP:"+c2_ip);
+		System.out.println("PORT"+c2_port);
 		//OBTAINING THE IP AND PORT (IN SOME WAY)
 
 
