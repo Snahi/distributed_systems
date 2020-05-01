@@ -6,175 +6,41 @@ import gnu.getopt.Getopt;
 //import java.lang.*;
 
 
-class client implements Runnable {
+class client {
 
-	static final int OK = 0;
-	static final int ERROR_USER = 1;
-	static final int ERROR = 2;
+	private static final int ERROR = 2;
+	private static final String DOWNLOADS_PATH = "downloads/";
 
-	static final String pathfiles="clientes";
-
-	/* Cna we use enum for returning codes??
-	private static enum CODE {
-        OK,
-        ERR,
-        ERR2
-	};
-	*/
 	
 	/******************* ATTRIBUTES *******************/
 	
 	private static String _server   = null;
 	private static int _port = -1;
-		
-	//Socket of the server
-    private static ServerSocket server_Socket;
+
     //Variable used to check if the user is connected or not
     private static Boolean connect = false; 	
     //Store the name of the current user
-    private static String username = "";  
-    //Variable used to control the execution of the thread
-    private static Boolean operating_thread = false; 
-	
-	private static int num_usuarios=0;
-	private static int res_thread=0;
-
-	/******************* CONSTRUCTOR (For the thread) *******************/
-
-    public client(ServerSocket sc) {
-        this.server_Socket = sc;
-    }
+    private static String username = "";
+	// server part of client - to send the real files
+	private static Server server = new Server();
 
 
 	/********************* METHODS ********************/
-	
 
-	public boolean file_exist (String file, String user){
-		
-		
-		return true;
-	}
 
 	
-	public static String readbytes(DataInputStream a) throws IOException {
-        String bytes = "";
+	private static String readbytes(DataInputStream a) throws IOException {
+        StringBuilder bytes = new StringBuilder();
         byte lastcharacter = 'l';
         byte current = 'r';
         while (lastcharacter != '\0') {
             current = a.readByte();
 			if (current != '\0')
-				bytes = bytes + (char) current;
+				bytes.append((char) current);
             lastcharacter = current;
         }
-        return bytes;
+        return bytes.toString();
 	}
-	
-
-
-/*
-	public static String readbytes(BufferedReader a) throws IOException {
-        String bytes = "";
-        byte lastcharacter = 'l';
-        byte current = 'r';
-        while (lastcharacter != '\0') {
-			a.readLine()
-            current = a.readByte();
-            bytes = bytes + (char) current;
-            lastcharacter = current;
-        }
-        return bytes;
-    }
-*/
-
-	// This method will keep executing during the execution of the program so that if the client receives some message, the operation will be done
-    public void run() {
-		
-        
-            try {
-				Socket cli_ser_Socket = server_Socket.accept(); 
-				
-				while(operating_thread == true) {
-
-				DataInputStream inFromServer = new DataInputStream(cli_ser_Socket.getInputStream());
-				String s = readbytes(inFromServer);
-				
-				if (s.equals("GET_FILE\0")) {
-					//String user = readbytes(inFromServer);
-                    String remote_file_name = readbytes(inFromServer);
-					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
-					File fichero = new File(pathfichero);
-					if (fichero.exists()){
-						byte[] byteArray=new byte[(int)fichero.length()];
-						
-						FileInputStream fis;
-						BufferedInputStream bis;
-						OutputStream os;
-						//DataInputStream input;
-        				/*
-						BufferedOutputStream bos;						
-						int in;
-
-
-						fis=new FileInputStream(fichero);
-
-						bis = new BufferedInputStream(fis);
-
-						bos = new BufferedOutputStream(cli_ser_Socket.getOutputStream());
-						*/
-						fis = new FileInputStream(fichero);
-          				bis = new BufferedInputStream(fis);
-          				bis.read(byteArray,0,byteArray.length);
-          				os = cli_ser_Socket.getOutputStream();
-          				System.out.println("Sending " + remote_file_name + "(" + byteArray + " bytes)");
-          				os.write(byteArray,0,byteArray.length);
-          				os.flush();
-          				System.out.println("Done.");
-
-
-						//enviamos el nombre del archivo            
-						//DataOutputStream dos=new DataOutputStream(cli_ser_Socket.getOutputStream());
-						//dos.writeUTF(fichero.getName());
-						/*
-						byteArray = new byte[8192];
-						while ((in = bis.read(byteArray)) != -1){
-							bos.write(byteArray,0,in);
-						}
-			*/
-						bis.close();
-						os.close();
-						
-						//RETURN 0
-						res_thread=0;
-							//SI SE TRANSFIERE ENTERO
-							//System.out.println("GET_FILE OK");
-					}
-					else {
-						//RETURN 1
-						res_thread=1;
-					}
-				}
-				else {
-					//NO HAY REQUEST
-				}
-			}
-            }
-            catch(SocketTimeoutException e){
-				//RETURN 2
-				System.out.println("GET_FILE FAIL 1");
-			}
-            catch(IOException ie) {
-				//RETURN 2
-				System.out.println("GET_FILE FAIL 2");
-                //System.out.println("c> Message receiving thread finished execution. Connect again to restore.");
-                ie.printStackTrace();
-            }
-            catch(Exception e){
-				//RETURN 2
-				System.out.println("GET_FILE FAIL 3");
-			}
-        
-    }
-
 
 
 
@@ -258,7 +124,7 @@ class client implements Runnable {
 				if (user.equals(username))
 				{
 					username = "";
-					operating_thread = false;
+					server.stop(); // TODO disconnect
 				}
 				System.out.println("c> UNREGISTER OK");
 				connect = false;
@@ -302,56 +168,55 @@ class client implements Runnable {
 		if(connect == false){ 
             try {
                 Socket client_Socket = new Socket(_server, _port);
-				server_Socket = new ServerSocket(0);
-				System.out.println("PORT LISTENING: "+server_Socket.getLocalPort());
                 DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+				if (!server.start())
+				{
+					System.out.println("c> CONNECT FAIL");
+					return -1;
+				}
 
                 //Send to the server the message CONNECT and the username and port of the client
 				outToServer.writeBytes("CONNECT\0");
 				outToServer.flush();
 				outToServer.writeBytes(user+"\0");
 				outToServer.flush();
-				outToServer.writeBytes(String.valueOf(server_Socket.getLocalPort())+"\0");
+				outToServer.writeBytes(server.getPort() + "\0");
 				outToServer.flush();
+
                 //Receive the message from the server and read it
                 DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-                byte [] response = new byte[1];
-                inFromServer.read(response);
+                byte [] responseArr = new byte[1];
+                int readLen = inFromServer.read(responseArr);
+				//We close the socket
+				client_Socket.close();
 
-                //Switch for the different returning messages from the server
-                switch (response[0]) {
-					case 0:
-					rc=0;
-                    System.out.println("c> CONNECT OK");
-		    		//Set the variable of the thread operating to true
-					operating_thread = true;
-					connect = true; 
-					username = user; 
-					new Thread(new client(server_Socket)).start();
-                    break;
-					
-					case 1:
-					rc=1;
-					System.out.println("c> CONNECT FAIL, USER DOES NOT EXIST");
-                    server_Socket.close();
-                    break;
-					
-					case 2:
-					rc=2;
-                    System.out.println("c> USER ALREADY CONNECTED");
-                    server_Socket.close();
-                    break;
-					
-					case 3:
-					rc=3;
-                    System.out.println("c> CONNECT FAIL");
-                    server_Socket.close();
-                    break;
-                }
+				rc = responseArr[0];
 
-                //We close the socket
-                client_Socket.close();
+				if (rc == 0 && readLen > 0)
+				{
+					System.out.println("c> CONNECT OK");
+					connect = true;
+					username = user;
+				}
+				else
+				{
+					switch (rc) {
+						case 1:
+							System.out.println("c> CONNECT FAIL, USER DOES NOT EXIST");
+							break;
 
+						case 2:
+							System.out.println("c> USER ALREADY CONNECTED");
+							break;
+
+						default:
+							System.out.println("c> CONNECT FAIL");
+							break;
+					}
+
+					server.stop();
+				}
 			}
 			catch (ConnectException e)
 			{
@@ -396,12 +261,16 @@ class client implements Runnable {
             //Switch for the different returning messages from the server
             switch (response) {
                 case 0:
-				rc=0;
-				System.out.println("c> DISCONNECT OK");
                 connect = false;
-                username = ""; 
+                username = "";
 				//Set the variable of the thread operating to false.
-                operating_thread=false; 
+				if(server.stop())
+					System.out.println("c> DISCONNECT OK");
+				else
+				{
+					System.out.println("c> DISCONNECT FAIL");
+					rc = 3;
+				}
 				break;
 				
 				case 1:
@@ -783,110 +652,99 @@ class client implements Runnable {
 	 */
 	static int get_file(String user_name, String remote_file_name, String local_file_name)
 	{
-		String c2_ip=null;
-		int c2_port=-1;
-		
-		ArrayList<Usuario> usuarios = new ArrayList<>();
-		int res = getConnectedUsersList(usuarios);
-		System.out.println(usuarios.get(0).nombre);
-		System.out.println(usuarios.get(1).nombre);
-		System.out.println(usuarios.get(0).ip);
-		System.out.println(usuarios.get(1).ip);
-		System.out.println(usuarios.get(0).port);
-		System.out.println(usuarios.get(1).port);
-		if (res != 0)
-			return ERROR; // TODO I'm not sure about the numbers, you must check it out youreself what's the correct value.
+		int res = Server.RESP_ERR_OTHER;
+		Usuario serverUsr = getConnectedUserByUsername(user_name);
 
-		for (Usuario u : usuarios)
+		if (serverUsr != null)
 		{
-			if (u.getNombre().equals(user_name))
-			{
-				c2_ip = u.getIp();
-				c2_port = u.getPort();
-			}
+			String serverIp = serverUsr.getIp();
+			int serverPort = serverUsr.getPort();
+
+			res = downloadFile(remote_file_name, local_file_name, serverIp, serverPort);
 		}
 
-		System.out.println("IP:"+c2_ip);
-		System.out.println("PORT"+c2_port);
-		//OBTAINING THE IP AND PORT (IN SOME WAY)
+		switch (res)
+		{
+			case Server.RESP_WILL_TRANSFER_FILE :
+				System.out.println("GET_FILE OK");
+				break;
+			case Server.RESP_ERR_FILE_DOESNT_EXIST :
+				System.out.println("GET_FILE_FAIL / FILE NOT EXIST");
+				break;
+			default :
+				System.out.println("GET_FILE FAIL");
+		}
+
+		return res;
+	}
 
 
-		try {
-			//REQUESTING THE FILE
-			Socket client_Socket = new Socket(c2_ip,c2_port);
-			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
-			
-			outToServer.writeBytes("GET_FILE\0");
+
+	private static Usuario getConnectedUserByUsername(String username)
+	{
+		ArrayList<Usuario> users = new ArrayList<>();
+		int res = getConnectedUsersList(users);
+
+		if (res != 0)
+			return null;
+
+		for (Usuario u : users)
+		{
+			if (u.getNombre().equals(username))
+				return u;
+		}
+
+		return null;
+	}
+
+
+
+	private static byte downloadFile(String remoteFilename, String localFilename, String ip, int port)
+	{
+		byte res;
+
+		try (Socket clientSocket = new Socket(ip, port))
+		{
+			ObjectOutputStream outToServer = new ObjectOutputStream(clientSocket.getOutputStream());
+
+			outToServer.writeObject(Server.REQ_GET_FILE);
 			outToServer.flush();
-			outToServer.writeBytes(remote_file_name+"\0");
+			outToServer.writeObject(remoteFilename);
 			outToServer.flush();
 
+			DataInputStream in = new DataInputStream(clientSocket.getInputStream());
+			// receive result
+			res = in.readByte();
 
-			//RECIBING THE FILE
-			//DataOutputStream output;
-			//BufferedInputStream bis;
-			InputStream is;
-			BufferedOutputStream bos;
-			FileOutputStream fos;
-			byte[] receivedData;
-			int bytesRead;
-			int current = 0;
-			boolean tranfered=false;
-			//int in;
-			//String file;
-			//int tam;
-			
-			while ( !tranfered ) {
-
-				
-				is = client_Socket.getInputStream();
-				//bis = new BufferedInputStream(client_Socket.getInputStream());
-                //DataInputStream dis = new DataInputStream(client_Socket.getInputStream());
-            
-                //recibimos el nombre del fichero
-				//file = dis.readUTF();
-				//tam = dis.readInt(); 
-				//receivedData = new byte[tam];
-
-				//file = file.substring(file.indexOf('/')+1,file.length());
-				receivedData=new byte[10000000];
-				fos=new FileOutputStream(pathfiles+"/"+username+"/"+local_file_name);
-                bos = new BufferedOutputStream(fos);
-				bytesRead = is.read(receivedData,0,receivedData.length);
-				current = bytesRead;
-				do {
-					bytesRead =
-					is.read(receivedData, current, (receivedData.length-current));
-					if(bytesRead >= 0) current += bytesRead;
-				 } while(bytesRead > -1);
-				 bos.write(receivedData, 0 , current);
-				 bos.flush();
-				//If not we can  use a for loop also
-				/*while ((in = bis.read(receivedData)) != -1){
-                    bos.write(receivedData,0,in);
-				}*/
-				bos.flush();
-                bos.close();
-				//dis.close();
-				       
-			
-			}
-			client_Socket.close();
-			return 0;
+			if (res == Server.RESP_WILL_TRANSFER_FILE) // success, file will be transferred
+				createDownloadedFileLocally(in, localFilename);
 		}
-		catch (Exception e) {
-			System.out.println("Exception: " + e);
-			e.printStackTrace();
-			//TODO: handle exception
+		catch (Exception e)
+		{
+			res = Server.RESP_ERR_OTHER;
 		}
-		return 0;
+
+		return res;
+	}
 
 
-		/*
-		// Write your code here
-		System.out.println("GET_FILE " + user_name + " "  + remote_file_name + " " + local_file_name);
-		return 0;
-		*/
+
+	private static void createDownloadedFileLocally(DataInputStream in, String localFileName) throws IOException
+	{
+		// out stream for the local file
+		String filePath = DOWNLOADS_PATH + localFileName;
+		FileOutputStream outFile = new FileOutputStream(filePath);
+
+		// buffer (file is sent in chunks)
+		byte[] receivedData = new byte[Server.FILE_CHUNK_SIZE];
+		int bytesRead;
+
+		while ((bytesRead = in.read(receivedData)) != -1)
+		{
+			outFile.write(receivedData, 0, bytesRead);
+		}
+
+		outFile.close();
 	}
 
 	
@@ -998,8 +856,8 @@ class client implements Runnable {
                     			else if (line[0].equals("QUIT")){
 						if (line.length == 1) {
 							exit = true;
-							//SALIDA DEL THREAD
-							operating_thread=false;
+							if (username != null && username.length() > 0)
+								disconnect(username);
 						} else {
 							System.out.println("Syntax error. Use: QUIT");
 						}
