@@ -935,7 +935,26 @@ class client {
 			return;
 		}
 		
-		// Write code here
+		// create folders for shared files and downloads if they dont exist
+        File filesDir = new File(Server.FILES_FOLDER_PATH);
+		if (!filesDir.exists())
+        {
+            if (!filesDir.mkdir())
+            {
+                System.out.println("Could not create files directory");
+                return;
+            }
+        }
+
+		File downloadsDir = new File(DOWNLOADS_PATH);
+		if (!downloadsDir.exists())
+		{
+		    if (!downloadsDir.mkdir())
+            {
+                System.out.println("Could not create downloads directory");
+                return;
+            }
+        }
 		
 		shell();
 		System.out.println("+++ FINISHED +++");

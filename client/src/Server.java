@@ -11,7 +11,7 @@ import java.net.SocketException;
 public class Server implements Runnable {
 
     // CONST ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private static final String FILES_FOLDER_PATH = "files/";
+    static final String FILES_FOLDER_PATH = "files/";
     static final int FILE_CHUNK_SIZE = 4096;
     static final String REQ_GET_FILE = "GET_FILE";
     // responses
