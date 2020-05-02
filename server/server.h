@@ -6,7 +6,6 @@
 // constants
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // port
-#define DEFAULT_PORT 7777
 #define MAX_PORT_NUMBER 49151
 #define MIN_PORT_NUMBER 1024
 #define MAX_PORT_STR "49151"
@@ -100,11 +99,6 @@
 	Returns port number if success, -1 if no port specified or the port is invalid
 */
 int obtain_port();
-/*
-	processes result from the obtain_port function and prints approporiate message.
-	Returns obtained_port or default port if errors occured.
-*/
-int process_obtain_port_result(int port);
 /*
 	starts listening for ctrl+c to finish the program.
 	Returns 1 on success and 0 on fail

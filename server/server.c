@@ -49,7 +49,11 @@ int is_running = 1;
 int main(int argc, char* argv[]) 
 {
 	int port = obtain_port(argc, argv);
-	port = process_obtain_port_result(port);
+	if (port <= 0)
+	{
+		print_usage();
+		return -1;
+	}
 
 	// obtain and print the local ip
 	char* addr = get_server_ip();
@@ -150,21 +154,6 @@ int obtain_port(int argc, char* argv[])
 	sscanf(port, "%d", &res);
 
 	return res >= MIN_PORT_NUMBER && res <= MAX_PORT_NUMBER ? res : -1;
-}
-
-
-
-int process_obtain_port_result(int port)
-{
-	int final_port = port;
-	if (port < 0)
-	{
-		print_usage();
-		final_port = DEFAULT_PORT;
-		printf("Default port %d assigned\n", DEFAULT_PORT);
-	}
-
-	return final_port;
 }
 
 
