@@ -107,27 +107,36 @@ class client {
 	{
 		int rc=0;
 		try {
-            Socket client_Socket = new Socket(_server, _port);
-            DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+			byte response = 0;
 
-			//Send to the server the message UNREGISTER and the username
-            outToServer.writeBytes("UNREGISTER\0");
-            outToServer.writeBytes(user+"\0");
+			int disconnect_res = disconnect_bare(user);
+			if (disconnect_res == 0 || disconnect_res == 2) // 2 -> not connected
+			{
+				Socket client_Socket = new Socket(_server, _port);
+				DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
-            //Receive the message from the server and read it
-            DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-            byte response = inFromServer.readByte();
+				//Send to the server the message UNREGISTER and the username
+				outToServer.writeBytes("UNREGISTER\0");
+				outToServer.flush();
+				outToServer.writeBytes(user+"\0");
+				outToServer.flush();
+
+				//Receive the message from the server and read it
+				DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+				response = inFromServer.readByte();
+
+				//After checkhing the response, we close the socket
+				client_Socket.close();
+			}
+			else if (disconnect_res == 1) // user doesn't exist
+				response = 1;
+			else
+				response = 2;
 
             //Switch for the different returning messages from the server
             switch (response){
 				case 0:
-				if (user.equals(username))
-				{
-					username = "";
-					server.stop(); // TODO disconnect
-				}
 				System.out.println("c> UNREGISTER OK");
-				connect = false;
 				rc=0;
 				break;
 				
@@ -141,9 +150,6 @@ class client {
                 System.out.println("c> UNREGISTER FAIL");
                 break;
             }
-
-			//After checkhing the response, we close the socket
-            client_Socket.close();
 
 		}
 		catch(ConnectException s){
@@ -167,8 +173,6 @@ class client {
 		int rc=0;
 		if(connect == false){ 
             try {
-                Socket client_Socket = new Socket(_server, _port);
-                DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
 				if (!server.start())
 				{
@@ -177,6 +181,9 @@ class client {
 				}
 
                 //Send to the server the message CONNECT and the username and port of the client
+				Socket client_Socket = new Socket(_server, _port);
+				DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
 				outToServer.writeBytes("CONNECT\0");
 				outToServer.flush();
 				outToServer.writeBytes(user+"\0");
@@ -188,6 +195,7 @@ class client {
                 DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
                 byte [] responseArr = new byte[1];
                 int readLen = inFromServer.read(responseArr);
+
 				//We close the socket
 				client_Socket.close();
 
@@ -215,6 +223,8 @@ class client {
 							break;
 					}
 
+					// failed -> stop the server, no message printed because it was already printed before, and the
+					// only way it fails is when some serious error occurs, so the exception will be printed anyway
 					server.stop();
 				}
 			}
@@ -242,61 +252,70 @@ class client {
 	 */
 	static int disconnect(String user) 
 	{
-		int rc=0;
-		try {
-			//Create the socket
-            Socket client_Socket = new Socket(_server, _port);
-            DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+		int rc=disconnect_bare(user);
+		//Switch for the different returning messages from the server
+		switch (rc) {
+			case 0:
+				System.out.println("c> DISCONNECT OK");
+				break;
 
-            //Send to the server the message DISCONNECT and the username
+			case 1:
+				System.out.println("c> DISCONNECT FAIL / USER DOES NOT EXIST");
+				break;
+
+			case 2:
+				System.out.println("c> DISCONNECT FAIL / USER NOT CONNECTED");
+				break;
+
+			case 3:
+				System.out.println("c> DISCONNECT FAIL");
+				break;
+		}
+        return rc;
+	}
+
+
+
+	/*
+	Disconnects the specified user, but doesn't print any error. This is a method for disconnect which will be
+	called in other methods which don't require printing the output. The base disconnect method also uses it.
+	 */
+	private static byte disconnect_bare(String user)
+	{
+		byte res;
+
+		try (Socket client_Socket = new Socket(_server, _port))
+		{
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+
+			//Send to the server the message DISCONNECT and the username
 			outToServer.writeBytes("DISCONNECT\0");
 			outToServer.flush();
 			outToServer.writeBytes(user+"\0");
 			outToServer.flush();
 
-            //Receive the message from the server and read it
-            DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-            byte response = inFromServer.readByte();
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
 
-            //Switch for the different returning messages from the server
-            switch (response) {
-                case 0:
-                connect = false;
-                username = "";
-				//Set the variable of the thread operating to false.
-				if(server.stop())
-					System.out.println("c> DISCONNECT OK");
-				else
-				{
-					System.out.println("c> DISCONNECT FAIL");
-					rc = 3;
-				}
-				break;
-				
-				case 1:
-				rc=1;
-                System.out.println("c> DISCONNECT FAIL / USER DOES NOT EXIST");
-				break;
-				
-				case 2:
-				rc=2;
-                System.out.println("c> DISCONNECT FAIL / USER NOT CONNECTED");
-				break;
-				
-				case 3:
-				rc=3;
-                System.out.println("c> DISCONNECT FAIL");
-                break;
-            }
+			res = inFromServer.readByte();
+		}
+		catch (IOException e)
+		{
+			res = 3;
+		}
 
-            //We close the socket
-            client_Socket.close();
-        }catch(Exception e) {
-            System.out.println("Exception: " + e);
-            e.printStackTrace();
-            return ERROR;
-        }
-        return rc;
+		if (res == 0)
+		{
+			if (server.stop())
+			{
+				connect = false;
+				username = "";
+			}
+			else
+				res = 3;
+		}
+
+		return res;
 	}
 
 
@@ -310,16 +329,6 @@ class client {
 	{
 		int rc=0;
 		try {
-			
-			/*
-			if (file_name.isBlank()){
-			}
-			if (file_name.length()>256){
-			}
-			if (description.length()>256){
-			}
-			*/
-
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
@@ -375,11 +384,6 @@ class client {
 			return ERROR;
 		}
 		return rc;
-		/*
-		// Write your code here
-		System.out.println("PUBLISH " + file_name + " " + description);
-		return 0;
-		*/
 	}
 
 	 /**
@@ -391,14 +395,6 @@ class client {
 	{
 		int rc=0;
 		try {
-			
-			/*
-			if (file_name.isBlank()){
-			}
-			if (file_name.length()>256){
-			}
-			*/
-
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
@@ -452,11 +448,6 @@ class client {
 			return ERROR;
 		}
 		return rc;
-		/*
-		// Write your code here
-		System.out.println("DELETE " + file_name);
-		return 0;
-		*/
 	}
 
 	 /**

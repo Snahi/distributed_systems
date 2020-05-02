@@ -1,18 +1,28 @@
-/*
-Server part of the client - for sending the actual files
- */
-
-
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 
+/*
+    Server part of the client - for sending the actual files.
+    In order to start the server call start(). In order to stop the server call stop(). The server can be reused,
+    whenever it is stopped and started it will create a new server socket and thread.
+ */
 public class Server implements Runnable {
 
     // CONST ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /*
+    Path to the folder where the published files are kept (available to other users).
+     */
     static final String FILES_FOLDER_PATH = "files/";
+    /*
+    Because there are no limits for file size, files will be sent in parts. This constant stores the size of a single
+    part in bytes.
+     */
     static final int FILE_CHUNK_SIZE = 4096;
+    /*
+    Request sent to the server in order to get a file. It is followed by filename.
+     */
     static final String REQ_GET_FILE = "GET_FILE";
     // responses
     static final byte RESP_WILL_TRANSFER_FILE = 0;
@@ -22,6 +32,10 @@ public class Server implements Runnable {
     // fields //////////////////////////////////////////////////////////////////////////////////////////////////////////
     private ServerSocket serverSocket;
     private Thread serverThread;
+    /*
+    If some file is being sent and the user disconnects the this flag will be changed to false and the file transmission
+    will be stopped.
+     */
     private boolean isRunning;
 
 
@@ -40,7 +54,7 @@ public class Server implements Runnable {
         if (serverThread != null)
             return false;
 
-        serverSocket = new ServerSocket(0);
+        serverSocket = new ServerSocket(0); // start listening on a random available port
 
         isRunning = true;
         serverThread = new Thread(this);
@@ -64,7 +78,7 @@ public class Server implements Runnable {
                 sendFile(clientSocket);
                 clientSocket.close();
             }
-            catch (SocketException e) // finish the server, close() was called
+            catch (SocketException e) // stop the server, close() was called while server was blocking on accept()
             {
                 return;
             }
@@ -93,6 +107,7 @@ public class Server implements Runnable {
             return;
         }
 
+        // all ok, transfer the file
         byte transferRes = transferFile(out, fileName);
 
         // send response if error occurred (otherwise it has been already sent in transferFile(...)
@@ -128,7 +143,7 @@ public class Server implements Runnable {
             e.printStackTrace();
         }
 
-        // the input stream will be closed when the socket is closed
+        // the input stream will be closed when the socket is closed, automatically
         return fileName;
     }
 
@@ -175,6 +190,7 @@ public class Server implements Runnable {
         {
             out.write(RESP_WILL_TRANSFER_FILE);
             out.flush();
+
             byte[] buff = new byte[FILE_CHUNK_SIZE];
             int nBytesRead;
 
@@ -240,10 +256,4 @@ public class Server implements Runnable {
         return serverSocket.getLocalPort();
     }
 
-
-
-    boolean isRunning()
-    {
-        return isRunning;
-    }
 }
