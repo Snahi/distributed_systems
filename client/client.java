@@ -97,13 +97,17 @@ class client implements Runnable {
 
 				DataInputStream inFromServer = new DataInputStream(cli_ser_Socket.getInputStream());
 				String s = readbytes(inFromServer);
-				
-				if (s.equals("GET_FILE\0")) {
+				System.out.println("MESSAGE: |"+s+"|");
+				System.out.println("Entering in the thread p1");
+				if (s.equals("GET_FILE")) {
+					System.out.println("Entering in the thread p2");
 					//String user = readbytes(inFromServer);
                     String remote_file_name = readbytes(inFromServer);
 					String pathfichero=pathfiles+"/"+username+"/"+remote_file_name;
 					File fichero = new File(pathfichero);
+					System.out.println("PATH OF THE FILE: "+pathfichero);
 					if (fichero.exists()){
+						System.out.println("Entering in the thread p3");
 						byte[] byteArray=new byte[(int)fichero.length()];
 						
 						FileInputStream fis;
@@ -422,7 +426,12 @@ class client implements Runnable {
 
             //We close the socket
             client_Socket.close();
-        }catch(Exception e) {
+		}
+		catch (ConnectException e)
+		{
+				System.out.println("c> DISCONNECT FAIL");
+		}
+		catch(Exception e) {
             System.out.println("Exception: " + e);
             e.printStackTrace();
             return ERROR;
