@@ -111,34 +111,32 @@ class client {
 		try {
 			byte response = 0;
 
-			int disconnect_res = disconnect_bare(user);
-			if (disconnect_res == 0 || disconnect_res == 2) // 2 -> not connected
-			{
-				Socket client_Socket = new Socket(_server, _port);
-				DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
+			Socket client_Socket = new Socket(_server, _port);
+			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
 
-				//Send to the server the message UNREGISTER and the username
-				outToServer.writeBytes("UNREGISTER\0");
-				outToServer.flush();
-				outToServer.writeBytes(user+"\0");
-				outToServer.flush();
+			//Send to the server the message UNREGISTER and the username
+			outToServer.writeBytes("UNREGISTER\0");
+			outToServer.flush();
+			outToServer.writeBytes(user+"\0");
+			outToServer.flush();
 
-				//Receive the message from the server and read it
-				DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
-				response = inFromServer.readByte();
+			//Receive the message from the server and read it
+			DataInputStream inFromServer = new DataInputStream(client_Socket.getInputStream());
+			response = inFromServer.readByte();
 
-				//After checkhing the response, we close the socket
-				client_Socket.close();
-			}
-			else if (disconnect_res == 1) // user doesn't exist
-				response = 1;
-			else
-				response = 2;
+			//After checkhing the response, we close the socket
+			client_Socket.close();
 
             //Switch for the different returning messages from the server
             switch (response){
 				case 0:
 				System.out.println("c> UNREGISTER OK");
+				if (user.equals(username))
+				{
+					username = "";
+					connect = false;
+					server.stop();
+				}
 				rc=0;
 				break;
 				
@@ -176,9 +174,11 @@ class client {
 		if(connect == false){ 
             try {
 
-				// no need to check for result, if false, then the server is already running,
-				// so can be reused
-				server.start();
+				if (!server.start())
+				{
+					System.out.println("c> CONNECT FAIL");
+					return 3;
+				}
 
                 //Send to the server the message CONNECT and the username and port of the client
 				Socket client_Socket = new Socket(_server, _port);
