@@ -938,6 +938,10 @@ void publish_content(int socket){
 					
 					if (res_published == PUBLISH_DIR_SUCCESS)
 						res =PUBLISH_CONTENT_SUCCESS;
+					else if (res_published == PUBLISH_DIR_ERR_EXISTS)
+					{
+						res = PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED;
+					}
 					else
 					{
 						printf("ERROR publish_content - unknown error in publish_content_dir\n");

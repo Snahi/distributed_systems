@@ -328,6 +328,12 @@ class client {
 	static int publish(String file_name, String description) 
 	{
 		int rc=0;
+		if (username == null || username.length() == 0)
+		{
+			System.out.println("c> PUBLISH FAIL, USER NOT CONNECTED");
+			return 2;
+		}
+
 		try {
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
@@ -377,6 +383,11 @@ class client {
 			//After checkhing the response, we close the socket
 			client_Socket.close();
 
+		}
+		catch(ConnectException e)
+		{
+			rc=4;
+			System.out.println("c> PUBLISH FAIL");
 		}
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
@@ -848,7 +859,7 @@ class client {
 						if (line.length == 1) {
 							exit = true;
 							if (username != null && username.length() > 0)
-								disconnect(username);
+								disconnect_bare(username);
 						} else {
 							System.out.println("Syntax error. Use: QUIT");
 						}
