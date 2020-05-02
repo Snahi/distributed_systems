@@ -256,4 +256,11 @@ public class Server implements Runnable {
         return serverSocket.getLocalPort();
     }
 
+
+
+    boolean isRunning()
+    {
+        return isRunning;
+    }
+
 }

@@ -1,6 +1,8 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import upper_case_client.UpperCaseService;
+import upper_case_client.UpperCaseServiceService;
 
 import gnu.getopt.Getopt;
 //import java.lang.*;
@@ -174,11 +176,9 @@ class client {
 		if(connect == false){ 
             try {
 
-				if (!server.start())
-				{
-					System.out.println("c> CONNECT FAIL");
-					return -1;
-				}
+				// no need to check for result, if false, then the server is already running,
+				// so can be reused
+				server.start();
 
                 //Send to the server the message CONNECT and the username and port of the client
 				Socket client_Socket = new Socket(_server, _port);
@@ -304,16 +304,16 @@ class client {
 			res = 3;
 		}
 
-		if (res == 0)
+		// stop the server no matter what
+		if (server.isRunning())
 		{
-			if (server.stop())
-			{
-				connect = false;
-				username = "";
-			}
-			else
+			if (!server.stop())
 				res = 3;
 		}
+		
+		// disconnect locally in any case
+		connect = false;
+		username = "";
 
 		return res;
 	}
@@ -335,6 +335,11 @@ class client {
 		}
 
 		try {
+			// transform description to uppercase
+			UpperCaseServiceService upperCaseService = new UpperCaseServiceService();
+			UpperCaseService upperCaser = upperCaseService.getUpperCaseServicePort();
+			description = upperCaser.upperCase(description);
+
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
