@@ -1,7 +1,3 @@
-#include "user_dao.h"
-
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // constants
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,6 +9,8 @@
 #define MAX_PORT_STR_SIZE strlen(MAX_PORT_STR)
 // ip address
 #define MAX_IP_ADDR_LEN 15
+#define MAX_HOST_LEN 35
+#define MAX_PORT_STR_LEN 6
 #define LOOPBACK_INTERFACE_NAME "lo"
 // main socket
 #define REQUESTS_QUEUE_SIZE 10
@@ -35,10 +33,17 @@
 #define REGISTER_SUCCESS 0
 #define REGISTER_NON_UNIQUE_USERNAME 1
 #define REGISTER_OTHER_ERROR 2
+// from storage server
+#define ADD_USER_SUCCESS 0
+#define ADD_USER_ERR_EXISTS 1
+#define ADD_USER_ERR_LOCK_MUTEX 3
 // unregister
 #define UNREGISTER_SUCCESS 0
 #define UNREGISTER_NO_SUCH_USER 1
 #define UNREGISTER_OTHER_ERROR 2
+// from storage server
+#define DELETE_USER_SUCCESS 0
+#define DELETE_USER_ERR_NOT_EXISTS 3
 // list users
 #define LIST_USERS_SUCCESS 0
 #define LIST_USERS_NO_SUCH_USER 1
@@ -56,6 +61,8 @@
 #define LIST_CONTENT_DISCONNECTED 2
 #define LIST_CONTENT_NO_SUCH_FILES_OWNER 3
 #define LIST_CONTENT_OTHER_ERROR 4
+// from server
+#define GET_FILES_ERR_NO_SUCH_USER 3
 // send content list
 #define SEND_CONTENT_LIST_SUCCESS 0
 #define SEND_CONTENT_LIST_ERR_NUM_OF_FILES 1
@@ -67,11 +74,19 @@
 #define CONNECT_USER_ERR_OTHER 3
 #define MAX_NUMBER_OF_CONNECTED_USERS 4000000
 #define MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN 7
+// from storage server
+#define ADD_CONNECTED_USER_SUCCESS 0
+#define ADD_CONNECTED_USER_ERR_EXISTS 1
+#define ADD_CONNECTED_USER_ERR_NOT_REGISTERED 7
 //disconnect
 #define DISCONNECT_USER_SUCCESS 0
 #define DISCONNECT_USER_ERR_NOT_REGISTERED 1
 #define DISCONNECT_USER_ERR_NOT_CONNECTED 2
 #define DISCONNECT_USER_ERR_OTHER 3
+// from storage server
+#define DELETE_CONNECTED_USER_SUCCESS 0
+#define DELETE_CONNECTED_USER_ERR_NOT_CONNECTED 3
+#define DELETE_CONNECTED_USER_ERR_NOT_REGISTERED 5
 //publish_content
 #define MAX_FILENAME_LEN 256
 #define MAX_FILE_DESC_LEN 256
@@ -81,6 +96,11 @@
 #define PUBLISH_CONTENT_ERR_USER_NOTCONNECTED 2
 #define PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED 3
 #define PUBLISH_CONTENT_ERR_OTHER 4
+// from storage server
+#define ADD_FILE_SUCCESS 0
+#define ADD_FILE_ERR_EXISTS 2
+#define ADD_FILE_ERR_NO_SUCH_USER 5
+#define ADD_FILE_ERR_DISCONNECTED 6
 //delete published content
 #define DELETE_PUBLISHED_CONT_SUCCESS 0
 #define DELETE_PUBLISHED_CONT_ERR_USER_NONEXISTENT 1
@@ -94,17 +114,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // function declarations
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-	Obtains the port number to be used for listening. The port is obtained from the command line
-	arguments.
-	Returns port number if success, -1 if no port specified or the port is invalid
-*/
-int obtain_port();
-/*
-	processes result from the obtain_port function and prints approporiate message.
-	Returns obtained_port or default port if errors occured.
-*/
-int process_obtain_port_result(int port);
+void get_arguments(int argc, char* argv[], int* p_port, char* storage_server_ip);
+void init_storage();
 /*
 	starts listening for ctrl+c to finish the program.
 	Returns 1 on success and 0 on fail
@@ -192,17 +203,9 @@ void list_users(int socket);
 	SEND_USERS_LIST_ERR_IP 				- could not send ip
 	SEND_USERS_LIST_ERR_PORT 			- could not send port
 */
-int send_users_list(int socket, user** users_list);
+int send_users_list(int socket, users_list* p_users_list);
 
 void list_content(int socket);
-/*
-	Sends list of content (names of files) through the socket.
-	Returns:
-	SEND_CONTENT_LIST_SUCCESS 			- success
-	SEND_CONTENT_LIST_ERR_NUM_OF_FILES 	- could not send number of files
-	SEND_CONTENT_LIST_ERR_FILENAME 		- could not send filename
-*/
-int send_content_list(int socket, char** content_list, uint32_t num_of_files);
 
 int publish_content(int socket);
 

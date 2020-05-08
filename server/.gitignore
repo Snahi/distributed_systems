@@ -1,3 +1,5 @@
 *.o
 server
-/storage/*
+storageserver
+storage/*
+connected_users/*
