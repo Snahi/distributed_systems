@@ -203,7 +203,7 @@ void list_users(int socket);
 	SEND_USERS_LIST_ERR_IP 				- could not send ip
 	SEND_USERS_LIST_ERR_PORT 			- could not send port
 */
-int send_users_list(int socket, user** users_list);
+int send_users_list(int socket, users_list* p_users_list);
 
 void list_content(int socket);
 

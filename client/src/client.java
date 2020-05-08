@@ -509,6 +509,9 @@ class client {
 	{
 		byte response = 0;
 
+		if (!connect || username.length() == 0) // not connected
+			return 2;
+
 		try {
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);

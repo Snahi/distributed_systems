@@ -17,8 +17,8 @@
 // length limits
 #define MAX_USERNAME_LEN 256
 #define MAX_FILENAME_LEN 256
-#define IP_STR_LEN 32
-#define PORT_STR_LEN 5
+#define IP_STR_LEN 16
+#define PORT_STR_LEN 6
 
 // methods results ////////////////////////////////////////////////////////////////////////////////
 // setup
@@ -92,6 +92,11 @@
 #define GET_FILES_ERR_NO_SUCH_USER 3
 #define GET_FILES_ERR_CLOSE_DIR 4
 #define GET_FILES_ERR_OPEN_DIR 6
+// list users
+#define GET_CONNECTED_USERS_SUCCESS 0
+#define GET_CONNECTED_USERS_NO_SUCH_USER 1
+#define GET_CONNECTED_USERS_DISCONNECTED 2
+#define GET_CONNECTED_USERS_OTHER_ERROR 3
 
 
 
@@ -541,6 +546,9 @@ bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_re
 // get connected users
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Helper for counting files which are stored in the specified directory and do not start with '.'
+*/
 uint32_t count_files(DIR* p_directory)
 {
     uint32_t quantity = 0;
@@ -588,89 +596,107 @@ int get_connected_user_ip_and_port(char* filepath, char* p_ip, char* p_port)
 
 
 
-bool_t get_connected_users_1_svc(users_list *result, struct svc_req *rqstp)
+int populate_users_list(DIR* p_connected_users_dir, char* connected_path, user* users)
 {
-	bool_t retval = 1;
+	int res = GET_CONNECTED_USERS_SUCCESS;
 
-	//  // create user directory path
-    // int connected_path_len = strlen(CONNECTED_USERS_DIR_PATH) + 1; // + 1 --> /
-    // char connected_path[connected_path_len];
-	// strcpy(connected_path, CONNECTED_USERS_DIR_PATH);
+	// prepare for iterating over connected users files
+	struct dirent* p_next_file; // for holding file pointer during iterating
+	char* file_name;
 
-    // if (pthread_mutex_lock(&mutex_connected_users) == 0)
-    // {
-    //     DIR* p_connected_users_dir = opendir(connected_path);
-    //     if (p_connected_users_dir != NULL)
-    //     {
-    //         struct dirent* p_next_file;
-    //         char* file_name;
-    //         int num_of_users = count_files(p_connected_users_dir);
-    //         p_result->users_vector_val = malloc(*num_of_users * sizeof(user));
-	// 		p_result->users_vector_len = num_of_users;
-	// 		user* users = p_result->users_vector_val;
+	int file_idx = 0;
+	char ip[IP_STR_LEN];
+	char port[PORT_STR_LEN];
+	char file_path[strlen(connected_path) + MAX_USERNAME_LEN + 1];
 
-    //         int file_idx = 0;
-	// 		char ip[IP_STR_LEN];
-	// 		char port[PORT_STR_LEN];
-	// 		char file_path[connected_path_len + MAX_USERNAME_LEN];
+	while ((p_next_file = readdir(p_connected_users_dir)) != NULL)
+	{
+		file_name = p_next_file->d_name;
+		if (file_name[0] != '.') // ignore non user files
+		{
+			strcpy(users[file_idx].username, file_name); // set username
 
-    //         while ((p_next_file = readdir(p_connected_users_dir)) != NULL)
-    //         {
-    //             file_name = p_next_file->d_name;
-    //             if (file_name[0] != '.') // ignore non user files
-    //             {
-    //                 users[file_idx].username = malloc((strlen(file_name) + 1) * sizeof(char));
-    //                 strcpy(users[file_idx].username, file_name);
+			// create path to the connected user file
+			strcpy(file_path, connected_path);
+			strcat(file_path, file_name);
 
-	// 				strcpy(file_path, connected_path);
-	// 				strcat(file_path, file_name);
-	// 				if (get_connected_user_ip_and_port(file_path, ip, port))
-	// 				{
-	// 					users[file_idx].ip = malloc(IP_STR_LEN * sizeof(char));
-	// 					strcpy(users[file_idx].ip, ip);
+			// obtain port and address from the connected user file
+			if (!get_connected_user_ip_and_port(file_path, users[file_idx].ip, 
+				users[file_idx].port)) // if failed
+			{
+				return GET_CONNECTED_USERS_OTHER_ERROR;
+			}
+			
+			++file_idx;
+		}
+	}
 
-	// 					users[file_idx].port = malloc(PORT_STR_LEN * sizeof(char));
-	// 					strcpy(users[file_idx].port, port);
-	// 				}
-	// 				else
-	// 				{
-						
-	// 				}
-					
-    //                 ++file_idx;
-    //             }
-    //         }
+	return res;
+}
 
-    //         *p_user_files = user_files;
+
+
+bool_t get_connected_users_1_svc(users_list *p_result, struct svc_req *rqstp)
+{
+	int res = GET_CONNECTED_USERS_SUCCESS;
+	int memory_allocated = 0; // allocated size of users list, used for returning error at the end
+
+	// create user directory path
+    int connected_path_len = strlen(CONNECTED_USERS_DIR_PATH) + strlen(FILE_SEPARATOR )+ 1; // + 1 --> /
+    char connected_path[connected_path_len];
+	strcpy(connected_path, CONNECTED_USERS_DIR_PATH);
+	strcat(connected_path, FILE_SEPARATOR);
+
+    if (pthread_mutex_lock(&mutex_connected_users) == 0)
+    {
+        DIR* p_connected_users_dir = opendir(connected_path);
+        if (p_connected_users_dir != NULL)
+        {
+			p_result->users_list_len = count_files(p_connected_users_dir);
+			p_result->users_list_val = malloc(sizeof(user) * p_result->users_list_len);
+			memory_allocated = p_result->users_list_len;
+			res = populate_users_list(p_connected_users_dir, connected_path, 
+				p_result->users_list_val);
             
-    //         if (closedir(p_user_dir) != 0)
-    //         {
-    //             perror("ERROR get_user_files_list - could not close dir");
-    //             res = GET_USER_FILES_LIST_ERR_CLOSE_DIR;
-    //         }
-    //     }
-    //     else // no such user
-    //     {
-	// 		*p_result = GET_CONNECTED_USERS_ERR_OPEN_CONNECTED_DIR;
-	// 		retval = 0;
-	// 		perror("ERROR get_connected_users - could not open connected users directory\n");
-	// 	}
+            if (closedir(p_connected_users_dir) != 0)
+            {
+                perror("ERROR get_user_files_list - could not close dir");
+                res = GET_CONNECTED_USERS_OTHER_ERROR;
+            }
+        }
+        else // could not open the directory with connected users
+        {
+			res = GET_CONNECTED_USERS_ERR_OPEN_CONNECTED_DIR;
+			perror("ERROR get_connected_users - could not open connected users directory\n");
+		}
 
-    //     if (pthread_mutex_unlock(&mutex_connected_users) != 0)
-    //     {
-    //         *p_result = GET_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
-	// 		retval = 0;
-    //         printf("ERROR get_connected_users - could not unlock mutex\n");
-    //     }
-    // }
-    // else // couldn't lock mutex
-    // {
-    //     *p_result = GET_CONNECTED_USERS_ERR_LOCK_MUTEX;
-	// 	retval = 0;
-    //     printf("ERROR get_connected_users- could not lock mutex\n");
-    // }
+		// unlock the mutex
+        if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+        {
+            res = GET_CONNECTED_USERS_ERR_UNLOCK_MUTEX;
+            printf("ERROR get_connected_users - could not unlock mutex\n");
+        }
+    }
+    else // couldn't lock mutex
+    {
+        res = GET_CONNECTED_USERS_ERR_LOCK_MUTEX;
+        printf("ERROR get_connected_users- could not lock mutex\n");
+    }
 
-	return retval;
+	if (res != GET_CONNECTED_USERS_SUCCESS)
+	{
+		if (memory_allocated == 0)
+		{
+			p_result->users_list_len = 1;
+			p_result->users_list_val = malloc(sizeof(user));
+		}
+
+		char str_err[3];
+		sprintf(str_err, ".%d", res);
+		strcpy(p_result->users_list_val[0].username, str_err);
+	}
+
+	return TRUE;
 }
 
 
@@ -706,8 +732,8 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 			// it will just return other error, which is actually true, because users are not 
 			// supposed to unregister themselfs while they publish a file. If the user is not
 			// connected then it's also not a big deal, because the user was connected a millisecond
-			// before, so not a big deal, since as in the case of unregister users are not supposed
-			// to disconnect themselves while publishing
+			// before and as in the case of unregister users are not supposed to disconnect 
+			// themselves while publishing
 			if(pthread_mutex_lock(&mutex_storage)==0)
 			{
 				/*checks if the file with that filename already exists*/
@@ -762,7 +788,7 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*
-	Helper for deleting the directory
+	Helper for deleting the publisehed file file
 */
 int delete_published_file(char* username, char* file_name)
 {

@@ -828,96 +828,124 @@ void disconnect_user(int socket){
 // list_users
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void list_users(int socket)
+uint8_t obtain_get_users_result(char* err_str)
 {
-	uint8_t res = LIST_USERS_SUCCESS;
-	// user** users_list = NULL;
+	int res = LIST_USERS_SUCCESS;
 
-	// char username[MAX_USERNAME_LEN + 1];
-	// if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // if user specified
-	// {
-	// 	printf("%s\n", username);
-	// 	if (is_registered(username))
-	// 	{
-	// 		int is_connected_res;
-	// 		if (is_connected(username, &is_connected_res))
-	// 		{
-	// 			if (is_connected_res == IS_CONNECTED_SUCCESS)
-	// 			{
-	// 				if (get_connected_users(&users_list) != GET_CONNECTED_USERS_SUCCESS)
-	// 				{
-	// 					printf("ERROR list_users - unknown error is get_connected_users\n");
-	// 					res = LIST_USERS_OTHER_ERROR;
-	// 				}
-	// 			}
-	// 			else // mutex errors
-	// 			{
-	// 				printf("ERROR list_users - unknown error in is_connected\n");
-	// 				res = LIST_USERS_OTHER_ERROR;
-	// 			}
-	// 		}
-	// 		else
-	// 			res = LIST_USERS_DISCONNECTED;
-	// 	}
-	// 	else
-	// 		res = LIST_USERS_NO_SUCH_USER;
-	// }
-	// else // no username specified
-	// {
-	// 	printf("\nERROR list_users - no user specified");
-	// 	res = LIST_USERS_OTHER_ERROR;
-	// }
+	// if error occurred it will be copied into the res variable
+	sscanf(err_str, ".%d", &res);
 
-	// send result
-
-	// if (send_msg(socket, (char*) &res, 1) == 0)
-	// {
-	// 	if (res == LIST_USERS_SUCCESS)
-	// 	{
-	// 		int send_res = send_users_list(socket, users_list);
-
-	// 		if (send_res != SEND_USERS_LIST_SUCCESS)
-	// 			printf("ERROR list_users - could not send users. Code: %d\n", send_res);
-	// 	}
-	// }
-	// else
-	// 	printf("ERROR list_users - could not send response\n");
-
-	// if (users_list != NULL)
-	// {
-	// 	int num_of_conn_users = vector_size(users_list);
-	// 	for (int i = 0; i < num_of_conn_users; i++)
-	// 		free(users_list[i]);
-	// 	vector_free(users_list);
-	// }
+	return res;
 }
 
 
 
-int send_users_list(int socket, user** users_list)
+void list_users(int socket)
 {
-	// // send number of users
-	// uint32_t num_of_users = (uint32_t) vector_size(users_list);
-	// char str_num_of_users[MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN + 1]; // max number of users is 4 000 000
-	// sprintf(str_num_of_users, "%d", num_of_users);
-	// if (send_msg(socket, str_num_of_users, strlen(str_num_of_users) + 1) != 0)
-	// 	return SEND_USERS_LIST_ERR_NUM_OF_USERS;
+	uint8_t res = LIST_USERS_SUCCESS;
+	users_list users;
+	users.users_list_val = malloc(MAX_NUM_OF_USERS);
 
-	// char addr[14];
+	char username[MAX_USERNAME_LEN + 1];
+	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) > 0) // if user specified
+	{
+		printf("%s\n", username);
+		int is_reg_res;
+		if (is_registered_1(username, &is_reg_res, p_client) == RPC_SUCCESS)
+		{
+			if (is_reg_res == 1)
+			{
+				int is_connected_res;
+				if (is_connected_1(username, &is_connected_res, p_client) == RPC_SUCCESS)
+				{
+					if (is_connected_res == 1)
+					{
+						if (get_connected_users_1(&users, p_client) != RPC_SUCCESS)
+						{
+							clnt_perror(p_client, "ERROR list_users - rpc error -> get users");
+							res = LIST_USERS_OTHER_ERROR;
+						}
+					}
+					else // not connected
+						res = LIST_USERS_DISCONNECTED;
+				}
+				else // RPC error -> is_connected
+				{
+					clnt_perror(p_client, "ERROR list_users - rpc error -> is_connected");
+					res = LIST_USERS_OTHER_ERROR;
+				}
+			}
+			else // user not registered
+				res = LIST_USERS_NO_SUCH_USER;
+		}
+		else // RPC error -> is_registered
+		{
+			clnt_perror(p_client, "ERROR list_users - rpc error -> is_registered");
+			res = LIST_USERS_OTHER_ERROR;
+		}
+	}
+	else // no username specified
+	{
+		printf("\nERROR list_users - no user specified");
+		res = LIST_USERS_OTHER_ERROR;
+	}
 
-	// // send users' data
-	// for (uint32_t i = 0; i < num_of_users; i++)
-	// {
-	// 	if (send_msg(socket, users_list[i]->username, strlen(users_list[i]->username) + 1) != 0)
-	// 		return SEND_USERS_LIST_ERR_USERNAME;
+	// if managed to obtain users list, then if an error occurred, then it is in users[0].username
+	// in the following format ".error_code". Obtain it
+	if (res == LIST_USERS_SUCCESS)
+		res = obtain_get_users_result(users.users_list_val[0].username);
+
+	// send the response
+	if (send_msg(socket, (char*) &res, 1) == 0)
+	{
+		if (res == LIST_USERS_SUCCESS)
+		{
+			int send_res = send_users_list(socket, &users);
+
+			if (send_res != SEND_USERS_LIST_SUCCESS)
+				printf("ERROR list_users - could not send users. Code: %d\n", send_res);
+		}
+	}
+	else
+		printf("ERROR list_users - could not send response\n");
+
+	free(users.users_list_val);
+}
+
+
+
+int send_users_list(int socket, users_list* p_users)
+{
+	// transform number of users into a string
+	uint32_t num_of_users = p_users->users_list_len;
+	char str_num_of_users[MAX_NUMBER_OF_CONNECTED_USERS_STR_LEN + 1];
+	sprintf(str_num_of_users, "%d", num_of_users);
+
+	// send number of users as a string
+	if (send_msg(socket, str_num_of_users, strlen(str_num_of_users) + 1) != 0)
+		return SEND_USERS_LIST_ERR_NUM_OF_USERS;
+
+	// send users' data
+	char* username;
+	char* addr;
+	char* port;
+	for (uint32_t i = 0; i < num_of_users; i++)
+	{
+		// send username
+		username = p_users->users_list_val[i].username;
+		if (send_msg(socket, username, strlen(username) + 1) != 0)
+			return SEND_USERS_LIST_ERR_USERNAME;
 		
-	// 	strcpy(addr, inet_ntoa(users_list[i]->ip));
-	// 	if (send_msg(socket, addr, strlen(addr) + 1) != 0)
-	// 		return SEND_USERS_LIST_ERR_IP;
+		// send ip address
+		addr = p_users->users_list_val[i].ip;
+		if (send_msg(socket, addr, strlen(addr) + 1) != 0)
+			return SEND_USERS_LIST_ERR_IP;
 
-	// 	if (send_msg(socket, users_list[i]->port, strlen(users_list[i]->port) + 1) != 0)
-	// 		return SEND_USERS_LIST_ERR_PORT;
-	// }
+		// send port
+		port = p_users->users_list_val[i].port;
+		if (send_msg(socket, port, strlen(port) + 1) != 0)
+			return SEND_USERS_LIST_ERR_PORT;
+	}
 
 	return SEND_USERS_LIST_SUCCESS;
 }
