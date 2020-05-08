@@ -17,7 +17,7 @@ import javax.xml.ws.WebServiceFeature;
  * Generated source version: 2.2
  * 
  */
-@WebServiceClient(name = "UpperCaseServiceService", targetNamespace = "http://services/", wsdlLocation = "file:/home/snavi/Documents/distributed_systems/distributed_systems/client/src/UpperCaseService.wsdl")
+@WebServiceClient(name = "UpperCaseServiceService", targetNamespace = "http://services/", wsdlLocation = "http://localhost:7778/upper_case?wsdl")
 public class UpperCaseServiceService
     extends Service
 {
@@ -30,7 +30,7 @@ public class UpperCaseServiceService
         URL url = null;
         WebServiceException e = null;
         try {
-            url = new URL("file:/home/snavi/Documents/distributed_systems/distributed_systems/client/src/UpperCaseService.wsdl");
+            url = new URL("http://localhost:7778/upper_case?wsdl");
         } catch (MalformedURLException ex) {
             e = new WebServiceException(ex);
         }

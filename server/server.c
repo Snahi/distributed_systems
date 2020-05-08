@@ -645,7 +645,6 @@ void connect_user(int socket)
 			if (getpeername(socket, (struct sockaddr*) &addr, &size) == 0)
 			{
 				int add_connected_res = -1;
-				printf("Port: %s\n", port);
 				if (add_connected_user_1(username, inet_ntoa(addr.sin_addr), port, 
 					&add_connected_res, p_client) == RPC_SUCCESS)
 				{

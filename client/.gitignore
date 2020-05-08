@@ -1,6 +1,6 @@
 .idea/*
 *.iml
-downloads/
-files/
-out/
-clientes/
+downloads/*
+files/*
+out/*
+clientes/*
