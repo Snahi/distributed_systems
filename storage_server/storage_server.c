@@ -16,6 +16,7 @@
 #define CONNECTED_USERS_DIR_PATH "connected_users"
 // length limits
 #define MAX_USERNAME_LEN 256
+#define MAX_FILENAME_LEN 256
 #define IP_STR_LEN 32
 #define PORT_STR_LEN 5
 
@@ -78,6 +79,12 @@
 #define ADD_FILE_ERR_UNLOCK_MUTEX 4
 #define ADD_FILE_ERR_NO_SUCH_USER 5
 #define ADD_FILE_ERR_DISCONNECTED 6
+// delete file
+#define DELETE_PUBLISHED_CONT_SUCCESS 0
+#define DELETE_PUBLISHED_CONT_ERR_USER_NONEXISTENT 1
+#define DELETE_PUBLISHED_CONT_ERR_USER_NOTCON 2
+#define DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB 3
+#define DELETE_PUBLISHED_CONT_ERR_OTHER 4
 // get files
 #define GET_FILES_SUCCESS 0
 #define GET_FILES_ERR_LOCK_MUTEX 1
@@ -107,6 +114,12 @@ pthread_mutex_t mutex_connected_users;
 // is_registered
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Checks whether user is registered. It is supposed to be used only internally.
+	Returns:
+		1 -> is registered
+		0 -> is not registered
+*/
 int is_registered_local(char* username)
 {
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username);
@@ -125,6 +138,12 @@ int is_registered_local(char* username)
 // is_connected
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Checks whether user is connected. It is supposed to be used only internally.
+	Returns:
+		1 -> is connected
+		0 -> is not connecnted
+*/
 int is_connected_local(char* username)
 {
 	char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
@@ -144,6 +163,9 @@ int is_connected_local(char* username)
 // setup
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Initializes the server. Must be called as the first function before any other.
+*/
 bool_t setup_1_svc(int *p_result, struct svc_req *rqstp)
 {
 	// create a directory for registered users and their published files if it doesn't exist
@@ -191,8 +213,12 @@ bool_t setup_1_svc(int *p_result, struct svc_req *rqstp)
 // shutdown
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Cleans up the server. Should be called when the server won't be used anymore.
+*/
 bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 {
+	// destroy mutex_storage
     if (pthread_mutex_destroy(&mutex_storage) != 0)
     {
 		printf("ERROR shutdown - could not destroy the storage mutex\n");
@@ -200,6 +226,7 @@ bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 		return TRUE;
 	}
 
+	// destroy mutex_connected_users
     if (pthread_mutex_destroy(&mutex_connected_users) != 0)
     {
 		printf("ERROR shutdown - could not destroy the connected users mutex\n");
@@ -218,6 +245,9 @@ bool_t shutdown_1_svc(int *p_result, struct svc_req *rqstp)
 // add user
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Creates folder for a new user.
+*/
 bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	*p_result = ADD_USER_SUCCESS;
@@ -232,11 +262,11 @@ bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 		// create user directory
 		if (mkdir(dir_path, S_IRWXU) != 0)
 		{          
-			if (errno == EEXIST)     
+			if (errno == EEXIST) // already exists
 			{
 				*p_result = ADD_USER_ERR_EXISTS;
 			}
-			else
+			else // other error
 			{
 				perror("ERROR add_user - could not create a directory:");
 				*p_result = ADD_USER_ERR_DIRECTORY;
@@ -249,7 +279,7 @@ bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 			*p_result = ADD_USER_ERR_UNLOCK_MUTEX;
 		}
 	}
-	else
+	else // could not lock mutex_storage
 	{
 		printf("ERROR add_user - could not lock the storage mutex\n");
 		*p_result = ADD_USER_ERR_LOCK_MUTEX;
@@ -264,6 +294,9 @@ bool_t add_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 // delete user
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Helper function for deleting all user files before the actual user deletion.
+*/
 int delete_all_user_files(char* user_dir_path, int file_path_len)
 {
     int res = DELETE_ALL_USER_FILES_SUCCESS;
@@ -303,11 +336,14 @@ int delete_all_user_files(char* user_dir_path, int file_path_len)
 
 
 
+/*
+	Deletes folder of the user with the specified username
+*/
 bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	*p_result = DELETE_USER_SUCCESS;
 
-    // create user directory path. + 1 because additional / to separate dir from file
+    // create user directory path. + 1 because additional '/' to separate dir from file
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1;
     char dir_path[user_folder_path_len + 1]; 
     strcpy(dir_path, STORAGE_DIR_PATH);
@@ -366,6 +402,10 @@ bool_t delete_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 // add connected user
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Creates a file for the user with the specified username making them visible as connected.
+	The file contains the user's address and port
+*/
 bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_result,  
 	struct svc_req *rqstp)
 {
@@ -377,51 +417,67 @@ bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_r
 	strcat(user_file_path, FILE_SEPARATOR);
     strcat(user_file_path, username);
 
-	if (is_registered_local(username))
+	if (pthread_mutex_lock(&mutex_storage) == 0)
 	{
-		if (pthread_mutex_lock(&mutex_connected_users) == 0)
+		if (is_registered_local(username))
 		{
-			// check if is connected
-			if(access(user_file_path, F_OK) == -1 )	// is not connected
+			if (pthread_mutex_lock(&mutex_connected_users) == 0)
 			{
-				FILE* user_file = fopen(user_file_path, "w");
-				if (user_file != NULL)
+				// check if is connected
+				if(access(user_file_path, F_OK) == -1 )	// is not connected
 				{
-					if (fprintf(user_file, "%s\n%s", addr, port) <= 0) // nothing was written
+					FILE* user_file = fopen(user_file_path, "w");
+					if (user_file != NULL)
 					{
-						printf("ERROR add_connected_user - could not wirte to the file\n");
-						*p_result = ADD_CONNECTED_USER_ERR_WRITE_TO_FILE;
+						if (fprintf(user_file, "%s\n%s", addr, port) <= 0) // nothing was written
+						{
+							printf("ERROR add_connected_user - could not wirte to the file\n");
+							*p_result = ADD_CONNECTED_USER_ERR_WRITE_TO_FILE;
+						}
 					}
-				}
-				else
-				{
-					perror("ERROR add_connected_user - could not create a file:");
-					*p_result = ADD_CONNECTED_USER_ERR_CREATE_FILE;
-				}
+					else
+					{
+						perror("ERROR add_connected_user - could not create a file:");
+						*p_result = ADD_CONNECTED_USER_ERR_CREATE_FILE;
+					}
 
-				if (fclose(user_file) != 0)
-				{
-					perror("ERROR add_connected_user - could not close file:");
-					*p_result = ADD_CONNECTED_USER_ERR_CLOSE_FILE;
-				}
-			} 
-			else // is already connected
-				*p_result = ADD_CONNECTED_USER_ERR_EXISTS;
+					if (fclose(user_file) != 0)
+					{
+						perror("ERROR add_connected_user - could not close file:");
+						*p_result = ADD_CONNECTED_USER_ERR_CLOSE_FILE;
+					}
+				} 
+				else // is already connected
+					*p_result = ADD_CONNECTED_USER_ERR_EXISTS;
 
-			if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+				if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+				{
+					printf("ERROR add_connected_user - could not unlock mutex_connected_users\n");
+					*p_result = ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX;
+				}
+			}
+			else
 			{
-				printf("ERROR add_connected_user - could not unlock the mutex\n");
-				*p_result = ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX;
+				printf("ERROR add_connected_user - could not lock the mutex_connected_users\n");
+				*p_result = ADD_CONNECTED_USER_ERR_LOCK_MUTEX;
 			}
 		}
-		else
+		else // not registered
+			*p_result = ADD_CONNECTED_USER_ERR_NOT_REGISTERED;
+
+		// unlock storage mutex
+		if (pthread_mutex_unlock(&mutex_storage) != 0)
 		{
-			printf("ERROR add_connected_user - could not lock the mutex\n");
-			*p_result = ADD_CONNECTED_USER_ERR_LOCK_MUTEX;
+			printf("ERROR add_connected_user - could not unlock mutex_storage\n");
+			*p_result = ADD_CONNECTED_USER_ERR_UNLOCK_MUTEX;
 		}
 	}
-	else // not registered
-		*p_result = ADD_CONNECTED_USER_ERR_NOT_REGISTERED;
+	else // couldn't lock the mutex_storage
+	{
+		printf("ERROR add_connected_user - could not lock the mutex_storage\n");
+		*p_result = ADD_CONNECTED_USER_ERR_LOCK_MUTEX;
+	}
+	
 
 	return TRUE;
 }
@@ -432,22 +488,26 @@ bool_t add_connected_user_1_svc(char *username, char *addr, char *port, int *p_r
 // delete connected user
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Deletes connected user file fo the specified user 
+*/
 bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_req *rqstp)
 {
 	*p_result = DELETE_CONNECTED_USER_SUCCESS;
 
+	// create user folder path
     char user_file_path[strlen(CONNECTED_USERS_DIR_PATH) + strlen(username) + 1];
     strcpy(user_file_path, CONNECTED_USERS_DIR_PATH);
 	strcat(user_file_path, FILE_SEPARATOR);
     strcat(user_file_path, username);
 
-	if (is_registered_local(username))
+	if (pthread_mutex_lock(&mutex_connected_users) == 0)
 	{
-		if (pthread_mutex_lock(&mutex_connected_users) == 0)
+		if (is_registered_local(username))
 		{
 			if (remove(user_file_path) != 0)
 			{
-				if (errno == ENOENT)
+				if (errno == ENOENT) // no such connected user
 					*p_result = DELETE_CONNECTED_USER_ERR_NOT_CONNECTED;
 				else
 				{
@@ -456,20 +516,21 @@ bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_re
 				}
 			}
 
+			// unlock the mutex
 			if (pthread_mutex_unlock(&mutex_connected_users) != 0)
 			{
 				printf("ERROR delete_connected_user - could not unlock the mutex\n");
 				*p_result = DELETE_CONNECTED_USER_ERR_UNLOCK_MUTEX;
 			}
 		}
-		else // couldn't lock mutex
-		{
-			printf("ERROR delete_connected_user - could not lock the mutex\n");
-			*p_result = DELETE_CONNECTED_USER_ERR_LOCK_MUTEX;
-		}
+		else // not registered
+			*p_result = DELETE_CONNECTED_USER_ERR_NOT_REGISTERED;
 	}
-	else // not registered
-		*p_result = DELETE_CONNECTED_USER_ERR_NOT_REGISTERED;
+	else // couldn't lock mutex
+	{
+		printf("ERROR delete_connected_user - could not lock the mutex\n");
+		*p_result = DELETE_CONNECTED_USER_ERR_LOCK_MUTEX;
+	}
 	
 	return TRUE;
 }
@@ -618,10 +679,12 @@ bool_t get_connected_users_1_svc(users_vector *p_result, struct svc_req *rqstp)
 // add file
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Creates a published file file in the specifed user's folder
+*/
 bool_t add_file_1_svc(char *username, char *file_name, char *description, int *result,  
 	struct svc_req *rqstp)
 {
- 	/*variable to store error*/
     int res= ADD_FILE_SUCCESS;
 
 	if (is_registered_local(username))
@@ -639,15 +702,21 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 			strcat(dir_path, FILE_SEPARATOR);
 			strcat(dir_path,file_name);
 
+			// I didn't lock the mutex before, because if the user is unregistered meanwhile then 
+			// it will just return other error, which is actually true, because users are not 
+			// supposed to unregister themselfs while they publish a file. If the user is not
+			// connected then it's also not a big deal, because the user was connected a millisecond
+			// before, so not a big deal, since as in the case of unregister users are not supposed
+			// to disconnect themselves while publishing
 			if(pthread_mutex_lock(&mutex_storage)==0)
 			{
 				/*checks if the file with that filename already exists*/
 				if(access(dir_path, F_OK)==-1)	// doesn't exist
 				{
-					/*create a new file*/
+					// create a new file
 					fileptr=fopen(dir_path,"w");
 						
-					/*Checking if the file was created successfully*/
+					// Checking if the file was created successfully
 					if(fileptr==NULL)
 					{
 						res=ADD_FILE_ERR_CREATE_FILE; 
@@ -658,7 +727,7 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 						fclose(fileptr);
 					}
 				}
-				else
+				else // already exists
 				{
 					res=ADD_FILE_ERR_EXISTS;
 				} 
@@ -669,7 +738,6 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 					res = ADD_FILE_ERR_UNLOCK_MUTEX;
 					printf("ERROR add_file - could not unlock mutex\n");
 				}
-
 			}
 			else
 			{
@@ -683,19 +751,77 @@ bool_t add_file_1_svc(char *username, char *file_name, char *description, int *r
 	else // not registered
 		res = ADD_FILE_ERR_NO_SUCH_USER;
 
+	*result = res;
 	return TRUE;
 }
 
-bool_t
-delete_file_1_svc(char *username, char *file_name, int *result,  struct svc_req *rqstp)
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// delete file
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+	Helper for deleting the directory
+*/
+int delete_published_file(char* username, char* file_name)
 {
-	bool_t retval;
+    int res = DELETE_PUBLISHED_CONT_SUCCESS;
 
-	/*
-	 * insert server code here
-	 */
+    // file path
+    char dir_path[strlen(STORAGE_DIR_PATH) + strlen(username)+ strlen(FILE_SEPARATOR) +
+		strlen(file_name) + 1];
+    strcpy(dir_path, STORAGE_DIR_PATH);
+    strcat(dir_path, username);
+    strcat(dir_path, FILE_SEPARATOR);
+    strcat(dir_path,file_name);
 
-	return retval;
+    if(pthread_mutex_lock(&mutex_storage)==0)
+    {
+        if(access(dir_path, F_OK) == 0) // file exists
+        {
+            if(remove(dir_path) != 0)
+				res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+        }
+        else // file doesnt' exist
+			res = DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB;
+
+		// unlock the mutex
+        if (pthread_mutex_unlock(&mutex_storage) != 0)
+        {
+            res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+            printf("ERROR delete_published_file - could not unlock mutex\n");
+        }
+    }
+    else // couldn't lock mutex
+	{
+		printf("ERROR delete_published_file - could not lock mutext\n");
+		res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+	}
+
+    return res;
+}
+
+/*
+	Deletes a published file file
+*/
+bool_t delete_file_1_svc(char *username, char *file_name, int *result,  struct svc_req *rqstp)
+{
+	uint8_t res = DELETE_PUBLISHED_CONT_SUCCESS;
+
+	if(is_registered_local(username))
+	{
+		if(is_connected_local(username))
+			res = delete_published_file(username, file_name);
+		else // not conencted
+			res = DELETE_PUBLISHED_CONT_ERR_USER_NOTCON;
+	}
+	else // not registered
+		res = DELETE_PUBLISHED_CONT_ERR_USER_NONEXISTENT;
+
+	*result = res;
+
+	return TRUE;
 }
 
 

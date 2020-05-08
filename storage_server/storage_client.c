@@ -1075,6 +1075,7 @@ int publish_content(int socket)
 				case ADD_FILE_SUCCESS 		   : res = PUBLISH_CONTENT_SUCCESS; break;
 				case ADD_FILE_ERR_NO_SUCH_USER : res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT; break;
 				case ADD_FILE_ERR_DISCONNECTED : res = PUBLISH_CONTENT_ERR_USER_NOTCONNECTED; break;
+				case ADD_FILE_ERR_EXISTS	   : res = PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED; break;
 				default : 
 					res = PUBLISH_CONTENT_ERR_OTHER;
 					printf("ERROR publish_content - unknown error in add_file\n");
@@ -1092,6 +1093,9 @@ int publish_content(int socket)
 		res=PUBLISH_CONTENT_ERR_OTHER;
 	}
 
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR disconnect_user - unable to send response");
+		
 	return res;
 }
 
@@ -1101,66 +1105,32 @@ int publish_content(int socket)
 // delete published content
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-int delete_published_content(int socket){
-
-	/*To get the error for is_connected*/
-	int is_connected_res;
-	
-	/*To store the output of the error*/
+int delete_published_content(int socket)
+{
 	uint8_t res= DELETE_PUBLISHED_CONT_SUCCESS;
 
+	char username[MAX_USERNAME_LEN + 1];
+	char file_name[MAX_FILENAME_LEN + 1];
 
-	// char username[MAX_USERNAME_LEN + 1];
-	// char file_name[MAX_FILENAME_LEN + 1];
+	if(safe_socket_read(socket,username, MAX_USERNAME_LEN)>0 && 
+		safe_socket_read(socket,file_name, MAX_FILENAME_LEN)>0)
+	{
+		printf("%s\n", username);
 
-	// if(safe_socket_read(socket,username, MAX_USERNAME_LEN)>0 && safe_socket_read(socket,file_name, MAX_FILENAME_LEN)>0)
-	// {
-	// 	/*To check if the user is registered*/
-	// 	if(is_registered(username))
-	// 	{
-	// 		/*To check if the user is connected*/
-	// 		if(is_connected(username,&is_connected_res))
-	// 		{
-	// 			if(is_connected_res==IS_CONNECTED_SUCCESS)
-	// 			{
-	// 				int delete_res = delete_content_dir(username, file_name);
-					
-	// 				if (delete_res != DELETE_CONTENT_SUCCESS)
-	// 				{
-	// 					if (delete_res == DELETE_CONTENT_ERR_FILE_NOTPUB)
-	// 					{
-	// 						res = DELETE_PUBLISHED_CONT_ERR_FILE_NOTPUB;
-	// 					}
-	// 					else
-	// 					{
-	// 						printf("ERROR delete_published_content - unknown error in delete_content_dir\n");
-	// 						res = DELETE_PUBLISHED_CONT_ERR_OTHER;
-	// 					}
-						
-	// 				}
-	// 			}
-	// 			else
-	// 			{
-	// 				printf("ERROR delete_published_content - unknown error in is_connected\n");
-	// 				res=DELETE_PUBLISHED_CONT_ERR_OTHER;
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			res=DELETE_PUBLISHED_CONT_ERR_USER_NOTCON;
-	// 		}
-			
-	// 	}
-	// 	else
-	// 	{
-	// 		res=DELETE_PUBLISHED_CONT_ERR_USER_NONEXISTENT;
-	// 	}
-	// }
-	// else
-	// {
-	// 	printf("ERROR delete_published_content - not all parameteres specified\n");
-	// 	res=DELETE_PUBLISHED_CONT_ERR_OTHER;
-	// }
+		if (delete_file_1(username, file_name, (int*) &res, p_client) != RPC_SUCCESS)
+		{
+			clnt_perror(p_client, "ERROR delete_published_content - RPC error");
+			res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+		}
+	}
+	else
+	{
+		printf("ERROR delete_published_content - not all parameteres specified\n");
+		res = DELETE_PUBLISHED_CONT_ERR_OTHER;
+	}
+
+	if (send_msg(socket, (char*) &res, 1) != 0)
+		printf("ERROR delete_published_content - could not sent the response\n");
 
 	return res;
 }
