@@ -645,8 +645,7 @@ void connect_user(int socket)
 			if (getpeername(socket, (struct sockaddr*) &addr, &size) == 0)
 			{
 				int add_connected_res = -1;
-				char port[MAX_PORT_STR_LEN];
-				sprintf(port, "%d", addr.sin_port);
+				printf("Port: %s\n", port);
 				if (add_connected_user_1(username, inet_ntoa(addr.sin_addr), port, 
 					&add_connected_res, p_client) == RPC_SUCCESS)
 				{
@@ -1107,12 +1106,13 @@ int delete_published_content(int socket)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*
-	Reads from a socket and appends  '\0' at the end, just in case.
+	Reads from a socket and appends  '\0' at the end, just in case. max_read_len does not include
+	'\0' so one more byte will be read.
 	Returns the number of bytes read.
 */
 int safe_socket_read(int socket, char* read, int max_read_len)
 {
-	int total_read = read_line(socket, read, max_read_len);
+	int total_read = read_line(socket, read, max_read_len + 1);
 	read[max_read_len] = '\0'; // just in case if the string is not properly ended
 	
 	return total_read;
