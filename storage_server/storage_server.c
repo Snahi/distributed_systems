@@ -588,7 +588,7 @@ int get_connected_user_ip_and_port(char* filepath, char* p_ip, char* p_port)
 
 
 
-bool_t get_connected_users_1_svc(users_vector *p_result, struct svc_req *rqstp)
+bool_t get_connected_users_1_svc(users_list *result, struct svc_req *rqstp)
 {
 	bool_t retval = 1;
 
@@ -851,29 +851,25 @@ uint32_t count_user_files(DIR* p_directory)
 int get_files_list_from_dir(DIR* p_dir, files_list* p_files)
 {
 	int res = GET_FILES_SUCCESS;
-
-	p_files->file = NULL;
-	p_files->p_next = NULL;
 	
+	// initialize files list
+	uint32_t num_of_files = count_files(p_dir);
+	p_files->files_list_len = num_of_files;
+	p_files->files_list_val = malloc(sizeof(file) * num_of_files);
+
+	// add files to the list
 	struct dirent* p_next_file;
 	char* file_name;
+	int currFileIdx = 0;
 
-	files_list* p_curr = p_files;
-	files_list* p_next = NULL;
-	while ((p_next_file = readdir(p_dir)) != NULL )
+	while ((p_next_file = readdir(p_dir)) != NULL)
 	{
 		file_name = p_next_file->d_name;
-		if (file_name[0] != '.') // ignore invalid files
+		if (file_name[0] != '.') // if file is valid
 		{
-			p_curr->file = malloc((strlen(file_name) + 1) * sizeof(char));
-			strcpy(p_curr->file, file_name);
+			strcpy(p_files->files_list_val[currFileIdx].filename, file_name);
 
-			p_next = malloc(sizeof(files_list));
-			p_next->file = NULL;
-			p_next->p_next = NULL;
-
-			p_curr->p_next = p_next;
-			p_curr = p_next;
+			currFileIdx++;
 		}
 	}
 	
@@ -888,10 +884,14 @@ int get_files_list_from_dir(DIR* p_dir, files_list* p_files)
 
 
 
-bool_t get_files_1_svc(char *username, files_list* p_result,  struct svc_req *rqstp)
+/*
+	If the function failed, then the error is specified in the first element preceded by .
+	E.g. if the error code is 3 then the first element of p_result.files_list_val will be
+	".3"
+*/
+bool_t get_files_1_svc(char *username, files_list *p_result,  struct svc_req *rqstp)
 {
-	int res = -1;
-	files_list result;
+	int res = 0;
 
     //create user directory path
     int user_folder_path_len = strlen(STORAGE_DIR_PATH) + strlen(username) + 1; // + 1 --> /
@@ -905,11 +905,7 @@ bool_t get_files_1_svc(char *username, files_list* p_result,  struct svc_req *rq
 	{
 		DIR* p_user_dir = opendir(user_dir_path);
 		if (p_user_dir != NULL)
-		{
-			//files_list list;
-			res = get_files_list_from_dir(p_user_dir, &result);
-			//result.files = list;
-		}
+			res = get_files_list_from_dir(p_user_dir, p_result);
 		else // error during opening the directory
 		{
 			if (errno == ENOENT) // no such user
@@ -933,8 +929,15 @@ bool_t get_files_1_svc(char *username, files_list* p_result,  struct svc_req *rq
 		printf("ERROR get_files - could not lock mutex\n");
 	}
 
-	// p_result->res = res;
-	*p_result = result;
+	// return error in the first element if occurred
+	if (res != 0) // failed
+	{
+		char str_res[3];
+		sprintf(str_res, ".%d", res);
+		p_result->files_list_len = 1;
+		p_result->files_list_val = malloc(sizeof(file));
+		strcpy(p_result->files_list_val[0].filename, str_res);
+	}
 	
 	return TRUE;
 }

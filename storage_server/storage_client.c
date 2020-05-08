@@ -603,10 +603,8 @@ void register_user(int socket)
 			{
 				switch (add_user_res)
 				{
-					case ADD_CONNECTED_USER_SUCCESS 	: 
-						result = REGISTER_SUCCESS; break;
-					case ADD_CONNECTED_USER_ERR_EXISTS 	: 
-						result = REGISTER_NON_UNIQUE_USERNAME; break;
+					case ADD_USER_SUCCESS 		: result = REGISTER_SUCCESS; break;
+					case ADD_USER_ERR_EXISTS 	: result = REGISTER_NON_UNIQUE_USERNAME; break;
 					default : 
 						result = REGISTER_OTHER_ERROR;
 						printf("ERROR register user - unknown error in create_user\n");
@@ -930,8 +928,12 @@ int send_users_list(int socket, user** users_list)
 // list_content
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Helper for checking if the user is allowed to list content
+*/
 uint8_t assure_requester_correctness_for_list_content(int socket)
 {
+	// read username of requester
 	char username[MAX_USERNAME_LEN + 1];
 	if (safe_socket_read(socket, username, MAX_USERNAME_LEN) <= 0) // if requesting user specified
 	{
@@ -941,6 +943,7 @@ uint8_t assure_requester_correctness_for_list_content(int socket)
 
 	printf("%s\n", username);
 
+	// check if the requester is registered
 	int is_registered_res = 0;
 	if (is_registered_1(username, &is_registered_res, p_client) != RPC_SUCCESS)
 	{
@@ -951,6 +954,7 @@ uint8_t assure_requester_correctness_for_list_content(int socket)
 	if (!is_registered_res)
 		return LIST_CONTENT_NOT_REGISTERED;
 
+	// check if the requester is connected
 	int is_connected_res = 0;
 	if (is_connected_1(username, &is_connected_res, p_client) != RPC_SUCCESS)
 	{
@@ -966,8 +970,13 @@ uint8_t assure_requester_correctness_for_list_content(int socket)
 
 
 
-int send_content_list(int socket, char** content_list, uint32_t num_of_files)
+/*
+	Helper for sending just the list of files
+*/
+int send_content_list(int socket, files_list* p_files_list)
 {
+	int num_of_files = p_files_list->files_list_len;
+	file* p_files = p_files_list->files_list_val;
 	// send number of files
 	char str_num_of_files[20];
 	sprintf(str_num_of_files, "%d", num_of_files);
@@ -978,8 +987,7 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 	// send users' data
 	for (uint32_t i = 0; i < num_of_files; i++)
 	{
-		printf("file: %s\n", content_list[i]);
-		if (send_msg(socket, content_list[i], strlen(content_list[i]) + 1) != 0)
+		if (send_msg(socket, p_files[i].filename, strlen(p_files[i].filename) + 1) != 0)
 			return SEND_CONTENT_LIST_ERR_SEND;
 	}
 
@@ -988,13 +996,16 @@ int send_content_list(int socket, char** content_list, uint32_t num_of_files)
 
 
 
-void send_list_content_result(int socket, uint8_t res, char** files, int num_of_files)
+/*
+	Helper for sending result to the client
+*/
+void send_list_content_result(int socket, uint8_t res, files_list* p_files)
 {
 	if (send_msg(socket, (char*) &res, 1) == 0)
 	{
 		if (res == LIST_CONTENT_SUCCESS)
 		{
-			int send_res = send_content_list(socket, files, num_of_files);
+			int send_res = send_content_list(socket, p_files);
 
 			if (send_res != SEND_CONTENT_LIST_SUCCESS)
 				printf("ERROR list_content - could not send content. Code: %d\n", send_res);
@@ -1009,19 +1020,31 @@ void send_list_content_result(int socket, uint8_t res, char** files, int num_of_
 void list_content(int socket)
 {
 	files_list files_res;
+	files_res.files_list_val = malloc(sizeof(file) * MAX_NUM_OF_FILES);
+
 	int res = assure_requester_correctness_for_list_content(socket);
+
+	// get list of files
 	if (res == LIST_CONTENT_SUCCESS)
 	{
 		char content_owner[MAX_USERNAME_LEN + 1];
 		if (safe_socket_read(socket, content_owner, MAX_USERNAME_LEN) > 0) // content owner specified
-		{
-			printf("owner: %s\n", content_owner);
-			int x = get_files_1(content_owner, &files_res, p_client);
-			printf("res code: %d\n", x);
+		{			
 			if (get_files_1(content_owner, &files_res, p_client) != RPC_SUCCESS)
 			{
 				clnt_perror(p_client, "ERROR list_content - rpc error get files\n");
 				res = LIST_CONTENT_OTHER_ERROR;
+			}
+
+			// if there were errors, then error code is in the first element preceeded by .
+			char* str_err = files_res.files_list_val[0].filename;
+			int err = 0;
+			if (sscanf(str_err, ".%d", &err) > 0)
+			{
+				if (err == GET_FILES_ERR_NO_SUCH_USER)
+					res = LIST_CONTENT_NO_SUCH_FILES_OWNER;
+				else
+					res = LIST_CONTENT_OTHER_ERROR;
 			}
 		}
 		else // no content owner specified
@@ -1030,18 +1053,10 @@ void list_content(int socket)
 			res = LIST_CONTENT_OTHER_ERROR;
 		}
 	}
+	
+	send_list_content_result(socket, res, &files_res);
 
-	printf("res: %s\n", files_res.file);
-	// char** files = files_res.string_vector_val;
-	// int n_of_files = files_res.string_vector_len;
-	// send_list_content_result(socket, res, files, n_of_files);
-
-	// if (files != NULL)
-	// {
-	// 	for (uint32_t i = 0; i < n_of_files; i++)
-	// 		free(files[i]);
-	// 	free(files);
-	// }
+	free(files_res.files_list_val);
 }
 
 

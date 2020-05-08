@@ -568,6 +568,13 @@ class client {
 	static int list_content(String user_name)
 	{
 		int rc=0;
+
+		if (!connect || username.length() == 0)
+		{
+			System.out.println("c> LIST_CONTENT FAIL , USER NOT CONNECTED");
+			return 2;
+		}
+
 		try {
 			
 			/*
@@ -625,7 +632,7 @@ class client {
 
 				case 4: //ANY OTHER CASE OR ERROR
 				rc=4;
-				System.out.println("c>LIST_CONTENT FAIL");
+				System.out.println("c> LIST_CONTENT FAIL");
 				break;
 
 			}
