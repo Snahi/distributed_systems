@@ -671,7 +671,7 @@ class client {
 	{
 		int res = Server.RESP_ERR_OTHER;
 		Usuario serverUsr = getConnectedUserByUsername(user_name);
-
+		
 		if (serverUsr != null)
 		{
 			String serverIp = serverUsr.getIp();
@@ -719,7 +719,7 @@ class client {
 	private static byte downloadFile(String remoteFilename, String localFilename, String ip, int port)
 	{
 		byte res;
-
+		
 		try (Socket clientSocket = new Socket(ip, port))
 		{
 			ObjectOutputStream outToServer = new ObjectOutputStream(clientSocket.getOutputStream());
@@ -732,7 +732,7 @@ class client {
 			DataInputStream in = new DataInputStream(clientSocket.getInputStream());
 			// receive result
 			res = in.readByte();
-
+			
 			if (res == Server.RESP_WILL_TRANSFER_FILE) // success, file will be transferred
 				createDownloadedFileLocally(in, localFilename);
 		}

@@ -42,99 +42,23 @@ int is_copied;
 	should stop. It is set to 1 after pressing ctrl + c
 */
 int is_running = 1;
-
+/*
+	RPC storage server client
+*/
 CLIENT* p_client;
 
 
 void storage_1(char *host)
 {
 	CLIENT *clnt;
-	// enum clnt_stat retval_1;
-	// int result_1;
-	// enum clnt_stat retval_2;
-	// int result_2;
-	// enum clnt_stat retval_3;
-	// int result_3;
-	// char *add_user_1_username;
-	// enum clnt_stat retval_4;
-	// int result_4;
-	// char *delete_user_1_username;
-	// enum clnt_stat retval_5;
-	// int result_5;
-	// // char *add_connected_user_1_username;
-	// // char *add_connected_user_1_in_addr;
-	// // char *add_connected_user_1_port;
-	// enum clnt_stat retval_6;
-	// int result_6;
-	// char *delete_connected_user_1_username;
-	// enum clnt_stat retval_7;
-	// users_vector result_7;
-	// enum clnt_stat retval_8;
-	// int result_8;
-	// char *add_file_1_username;
-	// char *add_file_1_file_name;
-	// char *add_file_1_description;
-	// enum clnt_stat retval_9;
-	// int result_9;
-	// char *delete_file_1_username;
-	// char *delete_file_1_file_name;
-	// enum clnt_stat retval_10;
-	// //files_vector result_10;
-	// char *get_files_1_username;
 
-#ifndef	DEBUG
-	clnt = clnt_create (host, STORAGE, STORAGE_VER, "udp");
+	clnt = clnt_create (host, STORAGE, STORAGE_VER, "tcp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
 	}
 
 	p_client = clnt;
-#endif	/* DEBUG */
-
-	// retval_1 = setup_1(&result_1, clnt);
-	// if (retval_1 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_2 = shutdown_1(&result_2, clnt);
-	// if (retval_2 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_3 = add_user_1(add_user_1_username, &result_3, clnt);
-	// if (retval_3 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_4 = delete_user_1(delete_user_1_username, &result_4, clnt);
-	// if (retval_4 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_5 = add_connected_user_1(add_connected_user_1_username, add_connected_user_1_in_addr, add_connected_user_1_port, &result_5, clnt);
-	// if (retval_5 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_6 = delete_connected_user_1(delete_connected_user_1_username, &result_6, clnt);
-	// if (retval_6 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_7 = get_connected_users_1(&result_7, clnt);
-	// if (retval_7 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_8 = add_file_1(add_file_1_username, add_file_1_file_name, add_file_1_description, &result_8, clnt);
-	// if (retval_8 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_9 = delete_file_1(delete_file_1_username, delete_file_1_file_name, &result_9, clnt);
-	// if (retval_9 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-	// retval_10 = get_files_1(get_files_1_username, &result_10, clnt);
-	// if (retval_10 != RPC_SUCCESS) {
-	// 	clnt_perror (clnt, "call failed");
-	// }
-#ifndef	DEBUG
-	// clnt_destroy (clnt);
-#endif	 /* DEBUG */
 }
 
 
@@ -145,12 +69,11 @@ void storage_1(char *host)
 
 int main(int argc, char* argv[]) 
 {
-	// get port and ip of storage server from arguments
+	// get port on which the server should run and ip of the storage server from arguments
 	int port;
 	char storage_host[MAX_HOST_LEN];
 	get_arguments(argc, argv, &port, storage_host);	// if fails -> exit -1
-	// temporal
-	storage_1(storage_host);
+	storage_1(storage_host); // initialize p_client
 	init_storage(); // if fails -> exit -1
 
 	// obtain and print the local ip
@@ -206,8 +129,9 @@ int main(int argc, char* argv[])
 			if (wait_till_socket_copying_is_done() != 0)
 				return -1;
 		}
-		else if (errno != EINTR) // if EINTR then ctrl+c was pressed, finish
+		else if (errno != EINTR) // if EINTR then ctrl+c was pressed -> finish
 		{
+			// error different than EINTR occurred, so it's not ctr+c
 			perror("ERROR main - could not accept request from socket");
 			return -1;
 		}
@@ -1095,9 +1019,7 @@ void list_content(int socket)
 	
 int publish_content(int socket)
 {
-	/*To get the error for is_connected*/
 	int is_connected_res;
-	/*To store the output of the error*/
 	uint8_t res= PUBLISH_CONTENT_SUCCESS;
 
 	char username[MAX_USERNAME_LEN + 1];
@@ -1184,6 +1106,10 @@ int delete_published_content(int socket)
 // safe socket read
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+	Reads from a socket and appends  '\0' at the end, just in case.
+	Returns the number of bytes read.
+*/
 int safe_socket_read(int socket, char* read, int max_read_len)
 {
 	int total_read = read_line(socket, read, max_read_len);
