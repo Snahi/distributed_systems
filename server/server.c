@@ -1030,24 +1030,29 @@ int publish_content(int socket)
 	{
 		printf("%s\n", username);
 
-		int add_file_res = -1;
-		if (add_file_1(username, file_name, description, &add_file_res, p_client) == RPC_SUCCESS)
-		{
-			switch (add_file_res)
-			{
-				case ADD_FILE_SUCCESS 		   : res = PUBLISH_CONTENT_SUCCESS; break;
-				case ADD_FILE_ERR_NO_SUCH_USER : res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT; break;
-				case ADD_FILE_ERR_DISCONNECTED : res = PUBLISH_CONTENT_ERR_USER_NOTCONNECTED; break;
-				case ADD_FILE_ERR_EXISTS	   : res = PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED; break;
-				default : 
-					res = PUBLISH_CONTENT_ERR_OTHER;
-					printf("ERROR publish_content - unknown error in add_file\n");
-			}
-		}
-		else // RPC error
-		{
-			clnt_perror(p_client, "ERROR publish_content - RPC error");
+		if (file_name[0] == '.')
 			res = PUBLISH_CONTENT_ERR_OTHER;
+		else
+		{
+			int add_file_res = -1;
+			if (add_file_1(username, file_name, description, &add_file_res, p_client) == RPC_SUCCESS)
+			{
+				switch (add_file_res)
+				{
+					case ADD_FILE_SUCCESS 		   : res = PUBLISH_CONTENT_SUCCESS; break;
+					case ADD_FILE_ERR_NO_SUCH_USER : res = PUBLISH_CONTENT_ERR_USER_NONEXISTENT; break;
+					case ADD_FILE_ERR_DISCONNECTED : res = PUBLISH_CONTENT_ERR_USER_NOTCONNECTED; break;
+					case ADD_FILE_ERR_EXISTS	   : res = PUBLISH_CONTENT_ERR_FILE_ALREADY_PUBLISHED; break;
+					default : 
+						res = PUBLISH_CONTENT_ERR_OTHER;
+						printf("ERROR publish_content - unknown error in add_file\n");
+				}
+			}
+			else // RPC error
+			{
+				clnt_perror(p_client, "ERROR publish_content - RPC error");
+				res = PUBLISH_CONTENT_ERR_OTHER;
+			}
 		}
 	}
 	else
