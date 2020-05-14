@@ -409,6 +409,11 @@ class client {
 	 */
 	static int delete(String file_name)
 	{
+		if (username == null || username.isEmpty())
+		{
+			System.out.println("c> DELETE FAIL, USER NOT CONNECTED");
+			return 2;
+		}
 		int rc=0;
 		try {
 			//Create the socket
@@ -579,14 +584,6 @@ class client {
 		}
 
 		try {
-			
-			/*
-			if (file_name.isBlank()){
-			}
-			if (file_name.length()>256){
-			}
-			*/
-
 			//Create the socket
 			Socket client_Socket = new Socket(_server, _port);
 			DataOutputStream outToServer = new DataOutputStream(client_Socket.getOutputStream());
@@ -630,7 +627,7 @@ class client {
 
 				case 3: //ANY OTHER CASE OR ERROR
 				rc=3;
-				System.out.println("c>LIST_CONTENT FAIL, REMOTE USER DOES NOT EXITS");
+				System.out.println("c> LIST_CONTENT FAIL, REMOTE USER DOES NOT EXITS");
 				break;
 
 				case 4: //ANY OTHER CASE OR ERROR
