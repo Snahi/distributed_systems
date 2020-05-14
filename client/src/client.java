@@ -5,6 +5,8 @@ import upper_case_client.UpperCaseService;
 import upper_case_client.UpperCaseServiceService;
 
 import gnu.getopt.Getopt;
+
+import javax.xml.ws.WebServiceException;
 //import java.lang.*;
 
 
@@ -389,7 +391,7 @@ class client {
 			client_Socket.close();
 
 		}
-		catch(ConnectException e)
+		catch(ConnectException | WebServiceException e)
 		{
 			rc=4;
 			System.out.println("c> PUBLISH FAIL");
@@ -463,6 +465,11 @@ class client {
 			client_Socket.close();
 
 		}
+		catch (ConnectException e)
+        {
+            rc=4;
+            System.out.println("c> DELETE FAIL");
+        }
 		catch(Exception e) {
 			System.out.println("Exception: " + e);
 			e.printStackTrace();
@@ -558,6 +565,10 @@ class client {
 
 			client_Socket.close();
 		}
+		catch (ConnectException e) // server down
+        {
+            response = 3;
+        }
 		catch (Exception e)
 		{
 			response = 3;
