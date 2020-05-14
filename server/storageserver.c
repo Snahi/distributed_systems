@@ -520,16 +520,16 @@ bool_t delete_connected_user_1_svc(char *username, int *p_result,  struct svc_re
 					*p_result = DELETE_CONNECTED_USER_ERR_REMOVE_FILE;
 				}
 			}
-
-			// unlock the mutex
-			if (pthread_mutex_unlock(&mutex_connected_users) != 0)
-			{
-				printf("ERROR delete_connected_user - could not unlock the mutex\n");
-				*p_result = DELETE_CONNECTED_USER_ERR_UNLOCK_MUTEX;
-			}
 		}
 		else // not registered
 			*p_result = DELETE_CONNECTED_USER_ERR_NOT_REGISTERED;
+
+		// unlock the mutex
+		if (pthread_mutex_unlock(&mutex_connected_users) != 0)
+		{
+			printf("ERROR delete_connected_user - could not unlock the mutex\n");
+			*p_result = DELETE_CONNECTED_USER_ERR_UNLOCK_MUTEX;
+		}
 	}
 	else // couldn't lock mutex
 	{
